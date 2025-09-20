@@ -21,14 +21,16 @@ export default function DashboardLayout({
       {/* Sidebar */}
       <div className="w-20 bg-white border-r border-gray-200 flex flex-col items-center py-6 space-y-6">
         {/* Scout Icon */}
-        <div className="w-12 h-12 mb-12 flex items-center justify-center">
-          <Image
-            src={scoutIcon}
-            alt="Arctic Scout Icon"
-            className="w-10 h-10"
-            priority
-          />
-        </div>
+        <Link href="/">
+          <div className="w-12 h-12 mb-12 flex items-center justify-center cursor-pointer">
+            <Image
+              src={scoutIcon}
+              alt="Arctic Scout Icon"
+              className="w-10 h-10"
+              priority
+            />
+          </div>
+        </Link>
 
         {/* World Icon */}
         <Link href="/dashboard/map">
