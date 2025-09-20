@@ -1,5 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import Image from "next/image";
+import rawSatelliteImage from "@/assets/raw-satellite.png";
+import waterMaskImage from "@/assets/water-mask.png";
+import vesselDetectionImage from "@/assets/icebergs.png";
 import {
   Satellite,
   Circle,
@@ -57,104 +61,71 @@ export default function DiskoBayPage() {
 
             <Tabs defaultValue="satellite" className="w-full flex-1">
               <TabsContent value="satellite">
-                <Card className="h-full">
+                <Card className="h-full flex flex-col">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-lg flex items-center gap-2">
                       <Satellite className="w-6 h-6 text-black" />
                       Satellite Imagery
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    {/* Image Placeholder */}
-                    <div className="w-full h-64 bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-muted-foreground/25 mb-4">
-                      <div className="text-center">
-                        <Satellite className="w-12 h-12 text-muted-foreground mb-2" />
-                        <p className="text-sm text-muted-foreground">
-                          Satellite Imagery Image
-                        </p>
-                      </div>
+                  <CardContent className="p-0 h-full flex-1 flex items-center justify-center overflow-hidden">
+                    {/* Satellite Image */}
+                    <div className="flex items-center justify-center overflow-hidden">
+                      <Image
+                        src={rawSatelliteImage}
+                        alt="Raw Satellite Imagery"
+                        className="h-[600px] object-contain"
+                      />
                     </div>
-
-                    <p className="text-sm text-muted-foreground mb-3">
-                      High-resolution satellite imagery
-                    </p>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      Satellite imagery reveals unusual vessel activity in the
-                      Disko Bay region. The high-resolution data shows multiple
-                      unidentified objects that don't match typical fishing or
-                      commercial vessel patterns.
-                    </p>
                   </CardContent>
                 </Card>
               </TabsContent>
 
-              <TabsContent value="red-band">
+              <TabsContent value="water-mask">
                 <Card className="h-full">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-lg flex items-center gap-2">
                       <Circle className="w-6 h-6 text-black" />
-                      Red Band Analysis
+                      Water Mask
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {/* Image Placeholder */}
-                    <div className="w-full h-64 bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-muted-foreground/25 mb-4">
-                      <div className="text-center">
-                        <Circle className="w-12 h-12 text-muted-foreground mb-2" />
-                        <p className="text-sm text-muted-foreground">
-                          Red Band Analysis Image
-                        </p>
-                      </div>
+                    <div className="flex items-center justify-center overflow-hidden">
+                      <Image
+                        src={waterMaskImage}
+                        alt="Water Mask"
+                        className="h-[600px] object-contain"
+                      />
                     </div>
-
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Red band spectral analysis
-                    </p>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      Red band spectral analysis indicates significant
-                      chlorophyll concentration anomalies. The data suggests
-                      potential underwater activity or environmental changes
-                      that could mask vessel detection.
-                    </p>
                   </CardContent>
                 </Card>
               </TabsContent>
 
-              <TabsContent value="vegetation">
+              <TabsContent value="vessel-detection">
                 <Card className="h-full">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-lg flex items-center gap-2">
                       <Leaf className="w-6 h-6 text-black" />
-                      Vegetation Index
+                      Vessel Detection
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {/* Image Placeholder */}
-                    <div className="w-full h-64 bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-muted-foreground/25 mb-4">
-                      <div className="text-center">
-                        <Leaf className="w-12 h-12 text-muted-foreground mb-2" />
-                        <p className="text-sm text-muted-foreground">
-                          Vegetation Index Image
-                        </p>
-                      </div>
+                    <div className="flex items-center justify-center overflow-hidden border-2 border-gray-200 rounded-lg bg-gray-50">
+                      <Image
+                        src={vesselDetectionImage}
+                        alt="Vessel Detection"
+                        className="h-[600px] object-contain"
+                      />
                     </div>
-
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Green band vegetation index
-                    </p>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      Vegetation index analysis shows unexpected changes in
-                      coastal vegetation patterns. The data reveals areas where
-                      natural growth has been disturbed, potentially indicating
-                      ground-based activity.
-                    </p>
                   </CardContent>
                 </Card>
               </TabsContent>
               <TabsList className="grid w-full grid-cols-3 mt-4">
                 <TabsTrigger value="satellite">Satellite Imagery</TabsTrigger>
-                <TabsTrigger value="red-band">Red Band</TabsTrigger>
-                <TabsTrigger value="vegetation">Vegetation</TabsTrigger>
+                <TabsTrigger value="water-mask">Water Mask</TabsTrigger>
+                <TabsTrigger value="vessel-detection">
+                  Vessel Detection
+                </TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
