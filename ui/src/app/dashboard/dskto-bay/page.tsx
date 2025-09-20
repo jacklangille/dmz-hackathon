@@ -6,6 +6,7 @@ import {
   Waves,
   MapPin,
   Thermometer,
+  Ship,
 } from "lucide-react";
 
 export default function DiskoBayPage() {
@@ -30,27 +31,6 @@ export default function DiskoBayPage() {
       description: "Green band vegetation index",
       analysis:
         "Vegetation index analysis shows unexpected changes in coastal vegetation patterns. The data reveals areas where natural growth has been disturbed, potentially indicating ground-based activity.",
-    },
-    {
-      icon: Waves,
-      title: "Water Analysis",
-      description: "Blue band water analysis",
-      analysis:
-        "Blue band water analysis reveals unusual turbidity patterns and water temperature variations. The data suggests underwater activity or vessel wake patterns that don't align with normal maritime traffic.",
-    },
-    {
-      icon: MapPin,
-      title: "Coastal Monitoring",
-      description: "Coastal monitoring data",
-      analysis:
-        "Coastal monitoring data shows irregular shoreline activity and potential landing sites. The analysis reveals disturbed sediment patterns and temporary structures that suggest recent human activity.",
-    },
-    {
-      icon: Thermometer,
-      title: "Thermal Analysis",
-      description: "Thermal infrared imagery",
-      analysis:
-        "Thermal infrared analysis reveals multiple heat signatures that don't correspond to known infrastructure or natural phenomena. The thermal patterns suggest active equipment or vehicles operating in the area.",
     },
   ];
 
@@ -163,6 +143,40 @@ export default function DiskoBayPage() {
                 </CardContent>
               </Card>
             ))}
+
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Ship className="w-6 h-6 text-black" />
+                  Vessel Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-3">
+                  AIS vessel identification
+                </p>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium text-muted-foreground">
+                      Vessel Classification:
+                    </span>
+                    <span className="text-sm text-foreground">Unknown</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium text-muted-foreground">
+                      Dark Vessel:
+                    </span>
+                    <span className="text-sm text-foreground">Yes</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium text-muted-foreground">
+                      Distance:
+                    </span>
+                    <span className="text-sm text-foreground">2.3 km</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
