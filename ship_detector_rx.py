@@ -169,15 +169,15 @@ class ShipDetectorRX:
         logger.info("Creating multispectral stack...")
         
         # Create stack in wavelength order
-        self.multispectral_stack = create_multispectral_stack(
+        multispectral_stack = create_multispectral_stack(
             self.processed_bands, 
             band_order=self.multispectral_bands
         )
         
-        logger.info(f"Multispectral stack shape: {self.multispectral_stack.shape}")
-        logger.info(f"Data range: {self.multispectral_stack.min():.2f} - {self.multispectral_stack.max():.2f}")
+        logger.info(f"Multispectral stack shape: {multispectral_stack.shape}")
+        logger.info(f"Data range: {multispectral_stack.min():.2f} - {multispectral_stack.max():.2f}")
         
-        return self.multispectral_stack
+        return multispectral_stack
     
     def create_water_mask(self, scl_band: np.ndarray) -> np.ndarray:
         """
@@ -204,6 +204,8 @@ class ShipDetectorRX:
         return water_mask
     
     def detect_ships(self, 
+                    multispectral_stack: np.ndarray,
+                    water_mask: np.ndarray,
                     detection_mode: str = "fast",
                     threshold_percentile: float = 99.5,
                     min_area: int = 25,
@@ -212,6 +214,8 @@ class ShipDetectorRX:
         Detect ships using RX anomaly detection.
         
         Args:
+            multispectral_stack: 3D array (height, width, bands)
+            water_mask: 2D boolean mask for valid pixels
             detection_mode: "fast", "adaptive", or "pixel_wise"
             threshold_percentile: Percentile for detection threshold
             min_area: Minimum area for valid detections
@@ -222,30 +226,22 @@ class ShipDetectorRX:
         """
         logger.info(f"Detecting ships using RX detector (mode: {detection_mode})...")
         
-        # Create water mask
-        if "SCL" in self.processed_bands:
-            self.water_mask = self.create_water_mask(self.processed_bands["SCL"])
-        else:
-            # Fallback: assume all pixels are valid
-            self.water_mask = np.ones(self.multispectral_stack.shape[:2], dtype=bool)
-            logger.warning("No SCL band found, using full image mask")
-        
         # Run RX detection
         if detection_mode == "fast":
             self.rx_scores, self.detections = self.rx_detector.detect_anomalies_fast(
-                self.multispectral_stack,
-                mask=self.water_mask,
+                multispectral_stack,
+                mask=water_mask,
                 threshold_percentile=threshold_percentile
             )
         elif detection_mode == "adaptive":
             self.rx_scores, self.detections = self.rx_detector.detect_anomalies_adaptive(
-                self.multispectral_stack,
-                mask=self.water_mask
+                multispectral_stack,
+                mask=water_mask
             )
         else:  # pixel_wise
             self.rx_scores, self.detections = self.rx_detector.detect_anomalies(
-                self.multispectral_stack,
-                mask=self.water_mask
+                multispectral_stack,
+                mask=water_mask
             )
         
         # Post-process detections
@@ -314,11 +310,16 @@ class ShipDetectorRX:
                 region.major_axis_length / region.minor_axis_length >= min_aspect_ratio and
                 region.solidity >= min_solidity)
     
-    def visualize_results(self, save_path: str = "ship_detection_rx_results.png"):
+    def visualize_results(self, 
+                         multispectral_stack: np.ndarray,
+                         water_mask: np.ndarray,
+                         save_path: str = "ship_detection_rx_results.png"):
         """
         Create comprehensive visualization of RX ship detection results.
         
         Args:
+            multispectral_stack: 3D array (height, width, bands)
+            water_mask: 2D boolean mask for valid pixels
             save_path: Path to save the visualization
         """
         logger.info("Creating visualization...")
@@ -345,7 +346,7 @@ class ShipDetectorRX:
         axes[0, 1].set_title("NIR Band")
         axes[0, 1].axis('off')
         
-        axes[0, 2].imshow(self.water_mask, cmap='Blues', alpha=0.7)
+        axes[0, 2].imshow(water_mask, cmap='Blues', alpha=0.7)
         axes[0, 2].set_title("Water Mask")
         axes[0, 2].axis('off')
         
@@ -432,18 +433,31 @@ class ShipDetectorRX:
             self.load_and_preprocess_data()
             
             # Step 2: Create multispectral stack
-            self.create_multispectral_stack()
+            multispectral_stack = self.create_multispectral_stack()
             
-            # Step 3: Detect ships using RX
+            # Step 3: Create water mask
+            if "SCL" in self.processed_bands:
+                water_mask = self.create_water_mask(self.processed_bands["SCL"])
+            else:
+                # Fallback: assume all pixels are valid
+                water_mask = np.ones(multispectral_stack.shape[:2], dtype=bool)
+                logger.warning("No SCL band found, using full image mask")
+            
+            # Step 4: Detect ships using RX
             self.detect_ships(
+                multispectral_stack=multispectral_stack,
+                water_mask=water_mask,
                 detection_mode=detection_mode,
                 threshold_percentile=threshold_percentile
             )
             
-            # Step 4: Visualize results
-            self.visualize_results()
+            # Step 5: Visualize results
+            self.visualize_results(
+                multispectral_stack=multispectral_stack,
+                water_mask=water_mask
+            )
             
-            # Step 5: Print summary
+            # Step 6: Print summary
             self.print_ship_summary()
             
             logger.info("✅ RX ship detection pipeline completed successfully!")
