@@ -55,13 +55,13 @@ export default function DiskoBayPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="bg-gray-50 h-screen flex flex-col">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold text-red-600 mb-2">
+      <div className="p-6 bg-white border-b border-gray-200">
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">
           Threat Detected - Disko Bay
         </h1>
-        <p className="text-lg text-gray-700">
+        <p className="text-gray-600">
           A potential security threat has been identified in the Disko Bay
           region. Immediate analysis and monitoring required to assess the
           situation and determine appropriate response measures.
@@ -69,95 +69,101 @@ export default function DiskoBayPage() {
       </div>
 
       {/* Main Content */}
-      {/* Location Details and Threat Level */}
-      <div className="space-y-6 grid grid-cols-2 gap-8 mb-8">
-        {/* Location Stats */}
-        <Card className="h-full">
-          <CardHeader>
-            <CardTitle>Location Details</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="font-medium text-muted-foreground">
-                  Longitude:
-                </span>
-                <span className="text-foreground">-51.1°</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="font-medium text-muted-foreground">
-                  Latitude:
-                </span>
-                <span className="text-foreground">69.2°</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="font-medium text-muted-foreground">Date:</span>
-                <span className="text-foreground">2024-01-15</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="font-medium text-muted-foreground">Time:</span>
-                <span className="text-foreground">14:32:47 UTC</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Threat Level Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <span className="w-3 h-3 bg-red-500 rounded-full"></span>
-              Threat Level: HIGH
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground leading-relaxed">
-              <strong>HIGH Threat Level</strong> indicates immediate security
-              concerns requiring urgent attention. This classification is
-              assigned when multiple intelligence sources confirm suspicious
-              activity, unusual vessel patterns, or potential unauthorized
-              operations in sensitive Arctic regions. Immediate response
-              protocols are activated, and continuous monitoring is required
-              until the threat is neutralized or confirmed as non-hostile.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Satellite Imagery Grid */}
-      <div className="space-y-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">
-          Satellite Imagery Analysis
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {satelliteBands.map((band, index) => (
-            <Card key={index} className="hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <band.icon className="w-6 h-6 text-black" />
-                  {band.title}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {/* Image Placeholder */}
-                <div className="w-full h-32 bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-muted-foreground/25 mb-4">
-                  <div className="text-center">
-                    <band.icon className="w-8 h-8 text-muted-foreground mb-2" />
-                    <p className="text-xs text-muted-foreground">
-                      {band.title} Image
-                    </p>
-                  </div>
+      <div className="p-6 flex-1 overflow-y-auto">
+        {/* Location Details and Threat Level */}
+        <div className="space-y-6 grid grid-cols-2 gap-8 mb-8">
+          {/* Location Stats */}
+          <Card className="h-full">
+            <CardHeader>
+              <CardTitle>Location Details</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="font-medium text-muted-foreground">
+                    Longitude:
+                  </span>
+                  <span className="text-foreground">-51.1°</span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="font-medium text-muted-foreground">
+                    Latitude:
+                  </span>
+                  <span className="text-foreground">69.2°</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium text-muted-foreground">
+                    Date:
+                  </span>
+                  <span className="text-foreground">2024-01-15</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium text-muted-foreground">
+                    Time:
+                  </span>
+                  <span className="text-foreground">14:32:47 UTC</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-                <p className="text-sm text-muted-foreground mb-3">
-                  {band.description}
-                </p>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  {band.analysis}
-                </p>
-              </CardContent>
-            </Card>
-          ))}
+          {/* Threat Level Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span className="w-3 h-3 bg-red-500 rounded-full"></span>
+                Threat Level: HIGH
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground leading-relaxed">
+                <strong>HIGH Threat Level</strong> indicates immediate security
+                concerns requiring urgent attention. This classification is
+                assigned when multiple intelligence sources confirm suspicious
+                activity, unusual vessel patterns, or potential unauthorized
+                operations in sensitive Arctic regions. Immediate response
+                protocols are activated, and continuous monitoring is required
+                until the threat is neutralized or confirmed as non-hostile.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Satellite Imagery Grid */}
+        <div className="space-y-6">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">
+            Satellite Imagery Analysis
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {satelliteBands.map((band, index) => (
+              <Card key={index} className="hover:shadow-lg transition-shadow">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <band.icon className="w-6 h-6 text-black" />
+                    {band.title}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {/* Image Placeholder */}
+                  <div className="w-full h-32 bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-muted-foreground/25 mb-4">
+                    <div className="text-center">
+                      <band.icon className="w-8 h-8 text-muted-foreground mb-2" />
+                      <p className="text-xs text-muted-foreground">
+                        {band.title} Image
+                      </p>
+                    </div>
+                  </div>
+
+                  <p className="text-sm text-muted-foreground mb-3">
+                    {band.description}
+                  </p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {band.analysis}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       </div>
     </div>
