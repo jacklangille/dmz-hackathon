@@ -31,9 +31,6 @@ class ShipDetectorRX:
         """
         Initialize ship detector.
         """
-        self.preprocessor = None
-        self.multispectral_stack = None
-        self.water_mask = None
         self.rx_scores = None
         self.detections = None
         self.ships = []
@@ -181,7 +178,7 @@ class ShipDetectorRX:
         rgb_composite = np.clip(rgb_composite, 0, 1)
         
         # Create visualization
-        fig, axes = plt.subplots(3, 3, figsize=(18, 18))
+        _, axes = plt.subplots(3, 3, figsize=(18, 18))
         
         # Row 1: Input data
         axes[0, 0].imshow(rgb_composite)
