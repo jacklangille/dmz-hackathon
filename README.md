@@ -1,86 +1,222 @@
-# 🚢 Ship Detection using RX (Reed-Xiaoli) Anomaly Detector
+# 🚢 RX Ship Detection Pipeline using Multispectral Satellite Data
 
-A complete pipeline for detecting ships in multispectral satellite imagery using the RX (Reed-Xiaoli) anomaly detection algorithm on 8-band Sentinel-2 data.
+A complete pipeline for detecting ships in multispectral satellite imagery using the RX (Reed-Xiaoli) anomaly detector on preprocessed Sentinel-2 data.
 
 ## 📋 Table of Contents
 
 - [Overview](#overview)
-- [RX Algorithm](#rx-algorithm)
 - [Architecture](#architecture)
+- [RX Detection Algorithm](#rx-detection-algorithm)
+- [Data Processing Pipeline](#data-processing-pipeline)
 - [Installation](#installation)
 - [Usage](#usage)
 - [Configuration](#configuration)
-- [Detection Modes](#detection-modes)
 - [Output](#output)
-- [Testing](#testing)
-- [Performance](#performance)
+- [Performance Tuning](#performance-tuning)
 - [Troubleshooting](#troubleshooting)
 
 ## 🎯 Overview
 
 This project implements a ship detection system that:
 
-1. **Loads and preprocesses** 8-band multispectral Sentinel-2 satellite imagery
-2. **Creates multispectral stacks** from individual bands
-3. **Applies RX anomaly detection** to identify ships as spectral anomalies
-4. **Filters detections** based on ship-like characteristics (size, shape, solidity)
-5. **Generates comprehensive results** with visualizations and detailed reports
+1. **Loads and preprocesses** Sentinel-2 multispectral imagery using the `load.py` pipeline
+2. **Applies the RX anomaly detector** to identify statistical outliers (potential ships) in the multispectral data
+3. **Filters detections** based on ship-like characteristics (size, shape, solidity)
+4. **Generates comprehensive results** with visualizations and detailed reports
 
 ### Key Features
 
-- ✅ **RX Anomaly Detection** optimized for multispectral data
-- ✅ **8-band multispectral processing** (B01-B08)
-- ✅ **Multiple detection modes** (fast, adaptive, pixel-wise)
-- ✅ **Robust filtering** to reduce false positives
-- ✅ **Comprehensive visualization** and reporting
-- ✅ **Configurable parameters** for different scenarios
-- ✅ **Production-ready** with error handling and logging
+- **8-band multispectral processing** (B01-B08 from Sentinel-2)
+- **Three detection modes**: Fast, Adaptive, and Pixel-wise
+- **Automatic shape consistency** handling for different band resolutions
+- **Comprehensive visualization** with 9-panel results
+- **Configurable parameters** for different scenarios
+- **Robust post-processing** to reduce false positives
 
-## 🔬 RX Algorithm
+## 🏗️ Architecture
 
-### What is RX Detection?
+```
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   Sentinel-2    │───▶│  Data Pipeline   │───▶│  RX Detector    │
+│   .SAFE Data    │    │   (load.py)      │    │  (rx_detector)  │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+                                │                        │
+                                ▼                        ▼
+                       ┌──────────────────┐    ┌─────────────────┐
+                       │ Multispectral    │    │ Ship Detection  │
+                       │ Stack (8 bands)  │    │ & Analysis      │
+                       └──────────────────┘    └─────────────────┘
+                                                        │
+                                                        ▼
+                                               ┌─────────────────┐
+                                               │ Visualization   │
+                                               │ & Results       │
+                                               └─────────────────┘
+```
 
-The Reed-Xiaoli (RX) detector is a statistical anomaly detection algorithm originally developed for hyperspectral imagery. It works by:
-
-1. **Computing background statistics** (mean and covariance) from surrounding pixels
-2. **Calculating Mahalanobis distance** between each pixel and background
-3. **Identifying anomalies** as pixels that are statistically different from background
-
-### Why RX for Ship Detection?
-
-- **Spectral anomalies**: Ships have different spectral signatures than water
-- **Multispectral advantage**: Uses all 8 bands for better discrimination
-- **Statistical robustness**: Handles varying background conditions
-- **No training required**: Unsupervised detection method
+## 🔬 RX Detection Algorithm
 
 ### Mathematical Foundation
 
-For each pixel **x**, the RX score is calculated as:
+The **Reed-Xiaoli (RX) Detector** is a statistical anomaly detection algorithm that identifies spectral outliers in multispectral imagery. It computes the **Mahalanobis distance** between each pixel's spectral signature and the local background statistics:
 
 ```
 RX(x) = (x - μ)ᵀ Σ⁻¹ (x - μ)
 ```
 
 Where:
-- **x**: Pixel spectral vector (8 bands)
-- **μ**: Background mean vector
-- **Σ⁻¹**: Inverse of background covariance matrix
+- `x` = pixel spectral vector (8-dimensional)
+- `μ` = background mean vector
+- `Σ⁻¹` = inverse background covariance matrix
 
-Higher RX scores indicate more anomalous (ship-like) pixels.
+### Algorithm Inputs
 
-## 🏗️ Architecture
-
+#### Primary Input:
+```python
+multispectral_data: np.ndarray
+# Shape: (height, width, n_bands)
+# Type: float32/float64
+# Range: 0.0 - 14034.0 (reflectance values)
 ```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Sentinel-2    │───▶│   Data Pipeline  │───▶│  RX Detection   │
-│   8-Band Data   │    │   (load.py)      │    │   Algorithm     │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-                                │                        │
-                                ▼                        ▼
-                       ┌──────────────────┐    ┌─────────────────┐
-                       │  Multispectral   │    │   Ship Results  │
-                       │     Stack        │    │  & Visualization│
-                       └──────────────────┘    └─────────────────┘
+
+#### Secondary Inputs:
+```python
+mask: Optional[np.ndarray]
+# Shape: (height, width)
+# Type: bool
+# Purpose: Valid pixels for detection (water mask)
+
+# Detection Parameters:
+background_radius: int = 15      # Background sampling radius
+guard_radius: int = 3            # Exclusion zone around test pixel
+min_valid_pixels: int = 50       # Minimum pixels for background stats
+regularization: float = 1e-6     # Covariance matrix regularization
+threshold_percentile: float = 99.5  # Detection threshold percentile
+```
+
+### Algorithm Outputs
+
+#### Primary Outputs:
+```python
+rx_scores: np.ndarray
+# Shape: (height, width)
+# Type: float32
+# Values: Mahalanobis distance scores (higher = more anomalous)
+
+detections: np.ndarray
+# Shape: (height, width)
+# Type: bool
+# Values: True = detected anomaly, False = background
+```
+
+#### Secondary Outputs:
+```python
+ships: List[Dict]
+# List of detected ship objects with properties:
+# - position: (x, y) coordinates
+# - area: pixel count
+# - aspect_ratio: length/width
+# - solidity: shape compactness
+# - length, width: bounding box dimensions
+```
+
+### Three Detection Modes
+
+#### A. Fast Mode (Default)
+```python
+detect_anomalies_fast()
+```
+- **Global background statistics** computed once
+- **Vectorized operations** for speed
+- **Suitable for**: Large images, initial screening
+- **Speed**: ~100x faster than pixel-wise
+- **Accuracy**: Good for homogeneous backgrounds
+
+#### B. Adaptive Mode
+```python
+detect_anomalies_adaptive()
+```
+- **Local background statistics** in sliding windows
+- **Better adaptation** to varying backgrounds
+- **Suitable for**: Heterogeneous scenes
+- **Speed**: ~10x faster than pixel-wise
+- **Accuracy**: Better than fast mode
+
+#### C. Pixel-wise Mode
+```python
+detect_anomalies()
+```
+- **Individual background statistics** for each pixel
+- **Ring-based sampling** around each pixel
+- **Suitable for**: Maximum accuracy
+- **Speed**: Slowest
+- **Accuracy**: Highest
+
+### Background Sampling Strategy
+
+#### Ring-based Sampling:
+```python
+def _create_ring_mask():
+    distances = sqrt((rows - center_row)² + (cols - center_col)²)
+    ring_mask = (distances <= background_radius) & (distances > guard_radius)
+```
+
+- **Outer radius**: `background_radius` (default: 15 pixels)
+- **Inner radius**: `guard_radius` (default: 3 pixels)
+- **Purpose**: Exclude target pixel and immediate neighbors
+
+### Post-processing Pipeline
+
+```python
+def post_process_detections():
+    # 1. Morphological opening (noise removal)
+    detections = opening(detections, footprint_rectangle((3, 3)))
+    
+    # 2. Remove small objects
+    detections = remove_small_objects(detections, min_size=25)
+    
+    # 3. Ship analysis
+    ships = analyze_ship_properties(detections)
+```
+
+## 📊 Data Processing Pipeline
+
+### Data Flow
+
+1. **Raw Sentinel-2 bands** → **Resampled & clipped** → **Consistent shapes**
+2. **Individual bands** → **Stacked** → **3D multispectral array**
+3. **Multispectral array** → **RX detector** → **Anomaly scores**
+
+### Band Processing
+
+The pipeline handles 8 Sentinel-2 bands with different native resolutions:
+
+| Band | Wavelength | Native Resolution | Purpose |
+|------|------------|-------------------|---------|
+| B01  | 443nm      | 60m               | Coastal aerosol |
+| B02  | 490nm      | 10m               | Blue |
+| B03  | 560nm      | 10m               | Green |
+| B04  | 665nm      | 10m               | Red |
+| B05  | 705nm      | 20m               | Red Edge 1 |
+| B06  | 740nm      | 20m               | Red Edge 2 |
+| B07  | 783nm      | 20m               | Red Edge 3 |
+| B08  | 842nm      | 10m               | NIR |
+
+### Shape Consistency
+
+The pipeline automatically ensures all bands have consistent shapes:
+
+```python
+def _ensure_consistent_shapes(self, processed_bands):
+    # Find the most common shape (target shape)
+    target_shape = max(shape_counts.items(), key=lambda x: x[1])[0]
+    
+    # Resize bands that don't match using scipy.ndimage.zoom
+    for band_name, band_array in processed_bands.items():
+        if band_array.shape != target_shape:
+            zoom_factors = (target_shape[0] / band_array.shape[0], 
+                          target_shape[1] / band_array.shape[1])
+            resized_band = zoom(band_array, zoom_factors, order=1)
 ```
 
 ## 🚀 Installation
@@ -88,42 +224,49 @@ Higher RX scores indicate more anomalous (ship-like) pixels.
 ### Prerequisites
 
 - Python 3.8+
-- Sentinel-2 SAFE format data
+- Virtual environment (recommended)
 
 ### Setup
 
-1. **Create virtual environment:**
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+1. **Clone the repository:**
+```bash
+git clone <repository-url>
+cd dmz-hackathon
+```
 
-2. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+2. **Create virtual environment:**
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
 
-3. **Verify installation:**
-   ```bash
-   python test_rx_detection.py
-   ```
+3. **Install dependencies:**
+```bash
+pip install -r requirements.txt
+```
+
+### Dependencies
+
+```
+numpy>=1.21.0
+scipy>=1.7.0
+scikit-learn>=1.0.0
+scikit-image>=0.19.0
+matplotlib>=3.5.0
+rasterio>=1.2.0
+geopandas>=0.10.0
+PyYAML>=6.0.0
+shapely>=2.0.0
+```
 
 ## 📖 Usage
 
-### Quick Start
-
-Run the complete RX ship detection pipeline:
+### Basic Usage
 
 ```bash
+# Run the complete pipeline
 python ship_detector_rx.py
 ```
-
-This will:
-1. Load your Sentinel-2 data from `s2_data.SAFE`
-2. Process 8 bands to common resolution
-3. Create multispectral stack
-4. Detect ships using RX algorithm
-5. Generate visualization and summary report
 
 ### Programmatic Usage
 
@@ -134,38 +277,36 @@ from ship_detector_rx import ShipDetectorRX
 detector = ShipDetectorRX("icebreaker/config/settings.yaml")
 
 # Run complete pipeline
-detector.run_complete_pipeline(
-    detection_mode="fast",
-    threshold_percentile=99.5
-)
+detector.run_complete_pipeline()
 
-# Or run steps individually
-detector.load_and_preprocess_data()
-detector.create_multispectral_stack()
-rx_scores, detections = detector.detect_ships(detection_mode="fast")
-detector.visualize_results("my_results.png")
-detector.print_ship_summary()
+# Access results
+ships = detector.ships
+rx_scores = detector.rx_scores
+detections = detector.detections
 ```
 
-### Custom Parameters
+### Custom Detection Parameters
 
 ```python
-# Customize detection parameters
-rx_scores, detections = detector.detect_ships(
-    detection_mode="adaptive",      # Detection mode
+# Initialize with custom parameters
+detector = ShipDetectorRX()
+
+# Run detection with custom settings
+detector.detect_ships(
+    detection_mode="adaptive",      # "fast", "adaptive", or "pixel_wise"
     threshold_percentile=99.0,      # Detection threshold
-    min_area=30,                   # Minimum ship area
-    cleanup_size=5                 # Morphological cleanup
+    min_area=30,                    # Minimum ship area
+    cleanup_size=3                  # Morphological cleanup size
 )
 ```
 
 ## ⚙️ Configuration
 
-### Data Configuration (`icebreaker/config/settings.yaml`)
+### Configuration File (`icebreaker/config/settings.yaml`)
 
 ```yaml
-S2_DATA_ROOT: s2_data.SAFE  # Path to Sentinel-2 SAFE directory
-AOI:                        # Area of Interest (GeoJSON format)
+S2_DATA_ROOT: s2_data.SAFE
+AOI:
   type: Polygon
   coordinates:
     - - [-53.209534, 69.252743]
@@ -175,244 +316,218 @@ AOI:                        # Area of Interest (GeoJSON format)
       - [-53.209534, 69.252743]
 ```
 
-### RX Parameters
+### RX Detector Parameters
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `background_radius` | 15 | Background window radius (pixels) |
-| `guard_radius` | 3 | Guard window radius (pixels) |
-| `min_valid_pixels` | 50 | Minimum valid pixels for statistics |
-| `regularization` | 1e-6 | Covariance matrix regularization |
-| `fast_mode` | True | Use fast approximation methods |
-
-### Ship Filtering Criteria
-
-| Criterion | Value | Description |
-|-----------|-------|-------------|
-| **Size** | 25-2000 pixels | Realistic ship dimensions |
-| **Aspect Ratio** | ≥ 1.2 | Ships are elongated |
-| **Solidity** | ≥ 0.6 | Ships have solid shapes |
-
-## 🔍 Detection Modes
-
-### 1. Fast Mode (Default)
 ```python
-detector.detect_ships(detection_mode="fast")
+# Default parameters
+RXDetector(
+    background_radius=15,      # Background sampling radius
+    guard_radius=3,            # Exclusion zone around test pixel
+    min_valid_pixels=50,       # Minimum pixels for background stats
+    regularization=1e-6,       # Covariance matrix regularization
+    fast_mode=True             # Use fast approximation methods
+)
 ```
 
-**Characteristics:**
-- Uses global background statistics
-- ~10-50x faster than pixel-wise
-- Good for initial screening
-- Less accurate for varying backgrounds
-
-**Best for:** Large images, initial testing, real-time applications
-
-### 2. Adaptive Mode
-```python
-detector.detect_ships(detection_mode="adaptive")
-```
-
-**Characteristics:**
-- Uses local background statistics
-- ~5-10x faster than pixel-wise
-- Better adaptation to varying backgrounds
-- Good balance of speed and accuracy
-
-**Best for:** Production use, varying background conditions
-
-### 3. Pixel-wise Mode
-```python
-detector.detect_ships(detection_mode="pixel_wise")
-```
-
-**Characteristics:**
-- Computes statistics for each pixel
-- Highest accuracy
-- Slowest processing
-- Best for research and validation
-
-**Best for:** Small images, maximum accuracy required
-
-## 📊 Output
+## 📈 Output
 
 ### Visualization
 
-The pipeline generates a comprehensive 9-panel visualization (3×3 grid):
+The pipeline generates a comprehensive 9-panel visualization (`ship_detection_rx_results.png`):
 
-#### **Row 1: Input Data**
-1. **RGB Composite** - True color image (B04, B03, B02)
-2. **NIR Band** - Near-infrared band (B08)
-3. **Water Mask** - Valid detection regions from SCL
+1. **RGB Composite** - Natural color visualization
+2. **NIR Composite** - Near-infrared visualization
+3. **Multispectral Stack** - All 8 bands combined
+4. **RX Scores** - Anomaly detection scores
+5. **Binary Detections** - Raw detection mask
+6. **Post-processed Detections** - Cleaned detections
+7. **Ship Analysis** - Detected ships with bounding boxes
+8. **Ship Properties** - Size and shape analysis
+9. **Detection Summary** - Statistical overview
 
-#### **Row 2: Multispectral Bands**
-4. **B01 (Coastal)** - Coastal aerosol band
-5. **B05 (Red Edge 1)** - Red edge band
-6. **B08 (NIR)** - Near-infrared band
-
-#### **Row 3: Results**
-7. **RX Scores** - Anomaly detection scores
-8. **Raw Detections** - Binary detection mask
-9. **Ships Detected** - Detected ships marked on RGB
-
-### Ship Summary Report
+### Console Output
 
 ```
 🚢 RX SHIP DETECTION SUMMARY
 ============================================================
 
 Ship 1:
-  Position: (245.3, 156.7)
-  Area: 89 pixels
-  Aspect Ratio: 2.34
-  Solidity: 0.78
-  Length: 18.2 pixels
-  Width: 7.8 pixels
+  Position: (43.9, 384.5)
+  Area: 45 pixels
+  Aspect Ratio: 2.09
+  Solidity: 0.94
+  Length: 11.1 pixels
+  Width: 5.3 pixels
+
+Ship 2:
+  Position: (65.4, 860.1)
+  Area: 27 pixels
+  Aspect Ratio: 1.36
+  Solidity: 0.96
+  Length: 6.8 pixels
+  Width: 5.0 pixels
+
+... (additional ships)
 ```
 
-### Data Files
+### Performance Metrics
 
-- **`ship_detection_rx_results.png`** - Comprehensive visualization
-- **RX scores array** - Available programmatically as NumPy array
-- **Detection arrays** - Binary detection masks
-
-## 🧪 Testing
-
-### Run All Tests
-```bash
-python test_rx_detection.py
+```
+INFO:__main__:Multispectral stack shape: (1244, 1107, 8)
+INFO:__main__:Data range: 0.00 - 14034.00
+INFO:rx_detector:Fast RX detection completed. Threshold: 338.28
+INFO:rx_detector:Detected 6886 anomalous pixels
+INFO:__main__:Raw detections: 2366 pixels
+INFO:__main__:Ships detected: 19
 ```
 
-### Test Components
+## ⚡ Performance Tuning
 
-1. **Basic RX Detector Test**
-   - Tests core RX algorithm with synthetic data
-   - Validates anomaly detection functionality
+### Speed Optimization Parameters
 
-2. **Detection Modes Comparison**
-   - Compares fast vs adaptive modes
-   - Shows performance vs accuracy trade-offs
+| Parameter | Current | Range | Impact on Speed | Impact on Accuracy |
+|-----------|---------|-------|-----------------|-------------------|
+| `detection_mode` | "fast" | fast/adaptive/pixel_wise | 100x/10x/1x | Good/Fair/Best |
+| `background_radius` | 15 | 5-30 | Smaller = Faster | Smaller = Less robust |
+| `min_valid_pixels` | 50 | 20-100 | Smaller = Faster | Smaller = Less stable |
+| `threshold_percentile` | 99.5 | 95-99.9 | N/A | Higher = Fewer FPs |
 
-3. **Performance Benchmark**
-   - Tests processing speed on different image sizes
-   - Provides performance metrics
+### Accuracy Optimization Parameters
 
-4. **Integration Test**
-   - Tests complete pipeline with real data
-   - Validates end-to-end functionality
+| Parameter | Current | Range | Impact on Accuracy | Impact on Speed |
+|-----------|---------|-------|-------------------|-----------------|
+| `regularization` | 1e-6 | 1e-8 to 1e-4 | Higher = More stable | N/A |
+| `guard_radius` | 3 | 1-5 | Larger = Better separation | N/A |
+| `min_area` | 25 | 10-50 | Larger = Fewer FPs | N/A |
+| `cleanup_size` | 3 | 1-5 | Larger = Less noise | N/A |
 
-### Synthetic Data Testing
+### Recommended Configurations
 
-The test script includes synthetic data generation for testing without real satellite data:
-
+#### For Maximum Speed:
 ```python
-# Create synthetic multispectral data
-height, width, n_bands = 100, 100, 8
-background = np.random.normal(100, 10, (height, width, n_bands))
-
-# Add ship anomalies
-ship_positions = [(30, 30), (70, 70)]
-for row, col in ship_positions:
-    background[row-2:row+3, col-2:col+3, :] = np.random.normal(200, 20, (5, 5, n_bands))
+detector = RXDetector(
+    background_radius=10,      # Smaller radius
+    min_valid_pixels=30,       # Fewer pixels needed
+    fast_mode=True
+)
 ```
 
-## ⚡ Performance
+#### For Maximum Accuracy:
+```python
+detector = RXDetector(
+    background_radius=20,      # Larger radius
+    guard_radius=5,            # Larger guard zone
+    min_valid_pixels=100,      # More pixels for stats
+    regularization=1e-8        # Less regularization
+)
+```
 
-### Typical Performance
+#### For Balanced Performance:
+```python
+detector = RXDetector(
+    background_radius=15,      # Default
+    guard_radius=3,            # Default
+    min_valid_pixels=50,       # Default
+    regularization=1e-6        # Default
+)
+```
 
-| Image Size | Fast Mode | Adaptive Mode | Pixel-wise Mode |
-|------------|-----------|---------------|-----------------|
-| 100×100    | 0.1s      | 0.5s          | 5s              |
-| 500×500    | 0.5s      | 2s            | 60s             |
-| 1000×1000  | 2s        | 8s            | 300s            |
+### Scene-Specific Tuning
 
-### Memory Usage
+#### Open Ocean (Homogeneous Background):
+```python
+detection_mode = "fast"
+background_radius = 20
+threshold_percentile = 99.8
+```
 
-- **Multispectral stack**: ~32MB for 1000×1000×8 (float32)
-- **RX scores**: ~4MB for 1000×1000 (float32)
-- **Background statistics**: ~1MB for 8×8 covariance matrix
+#### Coastal Areas (Heterogeneous Background):
+```python
+detection_mode = "adaptive"
+window_size = 41
+threshold_percentile = 99.5
+```
 
-### Optimization Tips
-
-- **Use fast mode** for initial testing and large images
-- **Process in tiles** for very large images
-- **Adjust threshold** based on false positive rate
-- **Use adaptive mode** for production with varying backgrounds
+#### High-Resolution Imagery:
+```python
+background_radius = 25
+guard_radius = 5
+min_area = 50  # Larger minimum ship size
+```
 
 ## 🔧 Troubleshooting
 
 ### Common Issues
 
-1. **Import Errors**
-   ```bash
-   # Ensure virtual environment is activated
-   source venv/bin/activate
-   pip install -r requirements.txt
-   ```
-
-2. **Data Not Found**
-   ```bash
-   # Check that s2_data.SAFE exists
-   ls -la s2_data.SAFE/
-   
-   # Verify config path
-   cat icebreaker/config/settings.yaml
-   ```
-
-3. **No Detections**
-   - Lower the threshold: `threshold_percentile=95.0`
-   - Reduce minimum area: `min_area=10`
-   - Check water mask coverage
-   - Verify multispectral data range
-
-4. **Too Many False Positives**
-   - Increase threshold: `threshold_percentile=99.8`
-   - Increase minimum area: `min_area=50`
-   - Tighten ship filtering criteria
-   - Increase morphological cleanup: `cleanup_size=7`
-
-5. **Memory Issues**
-   - Process smaller AOI regions
-   - Use fast mode for large images
-   - Reduce image resolution
-
-### Debug Mode
-
-Enable detailed logging:
-
-```python
-import logging
-logging.basicConfig(level=logging.DEBUG)
-
-detector = ShipDetectorRX()
-detector.run_complete_pipeline()
+#### 1. Shape Mismatch Error
 ```
+ValueError: Failed to standardize band shapes
+```
+**Solution**: The pipeline automatically handles this with the `_ensure_consistent_shapes()` method.
+
+#### 2. Memory Issues
+```
+MemoryError: Unable to allocate array
+```
+**Solutions**:
+- Use `detection_mode="fast"` for large images
+- Reduce `background_radius`
+- Process image in tiles
+
+#### 3. No Ships Detected
+**Solutions**:
+- Lower `threshold_percentile` (e.g., 99.0)
+- Reduce `min_area`
+- Check if water mask is correct
+- Verify multispectral data quality
+
+#### 4. Too Many False Positives
+**Solutions**:
+- Increase `threshold_percentile` (e.g., 99.8)
+- Increase `min_area`
+- Increase `cleanup_size`
+- Use `detection_mode="adaptive"` for heterogeneous scenes
 
 ### Performance Issues
 
-- **Large images**: Use fast mode or process in tiles
-- **Slow processing**: Reduce background window size
-- **Memory errors**: Process bands individually
+#### Slow Processing
+- Use `detection_mode="fast"` for initial testing
+- Reduce `background_radius`
+- Process smaller AOI regions
+
+#### Low Detection Accuracy
+- Use `detection_mode="adaptive"` or `"pixel_wise"`
+- Increase `background_radius`
+- Adjust `threshold_percentile`
+
+### Data Quality Issues
+
+#### Poor Spectral Contrast
+- Check band alignment and registration
+- Verify radiometric calibration
+- Ensure proper atmospheric correction
+
+#### Inconsistent Band Shapes
+- The pipeline automatically handles this
+- Check if all bands are properly resampled
 
 ## 📚 References
 
-- **RX Algorithm**: Reed, I.S., Yu, X. (1990) "Adaptive multiple-band CFAR detection of an optical pattern with unknown spectral distribution"
-- **Sentinel-2**: ESA's optical Earth observation mission
-- **Multispectral Analysis**: Principles of remote sensing and image processing
-- **Anomaly Detection**: Statistical methods for outlier detection
+- Reed, I. S., & Yu, X. (1990). Adaptive multiple-band CFAR detection of an optical pattern with unknown spectral distribution. IEEE Transactions on Acoustics, Speech, and Signal Processing, 38(10), 1760-1770.
+- Manolakis, D., & Shaw, G. (2002). Detection algorithms for hyperspectral imaging applications. IEEE Signal Processing Magazine, 19(1), 29-43.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Add tests
+4. Add tests if applicable
 5. Submit a pull request
 
-## 📄 License
+## 📞 Support
 
-This project is part of the DMZ Hackathon and follows the event's licensing terms.
-
----
-
-**Happy Ship Detecting with RX! 🚢✨**
+For questions or issues, please open an issue on the GitHub repository or contact the development team.
