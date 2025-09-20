@@ -86,6 +86,97 @@ def create_fallback_water_mask(shape: tuple) -> np.ndarray:
     return np.ones(shape, dtype=bool)
 
 
+def load_and_preprocess_data(config: Dict, multispectral_bands: List[str]) -> Dict[str, np.ndarray]:
+    """
+    Load and preprocess multispectral data.
+    
+    Args:
+        config: Configuration dictionary
+        multispectral_bands: List of band names to process
+        
+    Returns:
+        Dictionary of processed bands
+    """
+    logger.info("Loading and preprocessing multispectral data...")
+    
+    # Initialize preprocessor
+    safe_dir = Path(config["S2_DATA_ROOT"])
+    preprocessor = Sentinel2Preprocessor(safe_dir, "icebreaker/config/settings.yaml")
+    
+    # Discover bands
+    bands = preprocessor.discover_bands(multispectral_bands)
+    logger.info(f"Discovered bands: {list(bands.keys())}")
+    
+    # Process bands to common resolution and clip to AOI
+    processed_bands = preprocessor.process_bands(
+        band_names=multispectral_bands,
+        reference_band="B04",  # Use B04 as 10m reference
+        aoi_geometry=config["AOI"],
+        output_resolution="10m"
+    )
+    
+    # Validate and fix any shape inconsistencies
+    processed_bands = ensure_consistent_shapes(processed_bands)
+    
+    logger.info(f"Processed {len(processed_bands)} bands")
+    logger.info(f"Band shapes: {[(k, v.shape) for k, v in processed_bands.items()]}")
+    
+    return processed_bands
+
+
+def ensure_consistent_shapes(processed_bands: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
+    """
+    Ensure all processed bands have consistent shapes by resizing if necessary.
+    
+    Args:
+        processed_bands: Dictionary of processed bands
+        
+    Returns:
+        Dictionary of bands with consistent shapes
+    """
+    logger.info("Ensuring consistent band shapes...")
+    
+    # Find the most common shape (should be the target shape)
+    shapes = {name: band.shape for name, band in processed_bands.items()}
+    shape_counts = {}
+    for shape in shapes.values():
+        shape_counts[shape] = shape_counts.get(shape, 0) + 1
+    
+    # Get the most common shape
+    target_shape = max(shape_counts.items(), key=lambda x: x[1])[0]
+    logger.info(f"Target shape: {target_shape}")
+    
+    # Resize bands that don't match the target shape
+    from scipy.ndimage import zoom
+    
+    consistent_bands = {}
+    for band_name, band_array in processed_bands.items():
+        if band_array.shape == target_shape:
+            consistent_bands[band_name] = band_array
+            logger.info(f"Band {band_name} already has target shape: {band_array.shape}")
+        else:
+            # Calculate zoom factors
+            zoom_factors = (target_shape[0] / band_array.shape[0], 
+                          target_shape[1] / band_array.shape[1])
+            
+            # Resize the band
+            resized_band = zoom(band_array, zoom_factors, order=1)  # Linear interpolation
+            consistent_bands[band_name] = resized_band
+            logger.info(f"Band {band_name} resized from {band_array.shape} to {resized_band.shape}")
+    
+    # Final validation
+    final_shapes = {name: band.shape for name, band in consistent_bands.items()}
+    unique_shapes = set(final_shapes.values())
+    
+    if len(unique_shapes) == 1:
+        logger.info(f"✅ All bands now have consistent shape: {list(unique_shapes)[0]}")
+    else:
+        logger.error(f"❌ Shape consistency failed: {final_shapes}")
+        raise ValueError(f"Failed to ensure consistent shapes: {final_shapes}")
+    
+    return consistent_bands
+
+
 class ShipDetectorRX:
     """
     Ship detector using RX anomaly detection on multispectral data.
@@ -104,7 +195,6 @@ class ShipDetectorRX:
         self.config_path = config_path
         self.config = self._load_config()
         self.preprocessor = None
-        self.processed_bands = {}
         self.multispectral_stack = None
         self.water_mask = None
         self.rx_scores = None
@@ -138,91 +228,6 @@ class ShipDetectorRX:
             config = yaml.safe_load(file)
         return config
     
-    def load_and_preprocess_data(self) -> Dict[str, np.ndarray]:
-        """
-        Load and preprocess multispectral data.
-        
-        Returns:
-            Dictionary of processed bands
-        """
-        logger.info("Loading and preprocessing multispectral data...")
-        
-        # Initialize preprocessor
-        safe_dir = Path(self.config["S2_DATA_ROOT"])
-        self.preprocessor = Sentinel2Preprocessor(safe_dir, self.config_path)
-        
-        # Discover bands
-        bands = self.preprocessor.discover_bands(self.multispectral_bands)
-        logger.info(f"Discovered bands: {list(bands.keys())}")
-        
-        # Process bands to common resolution and clip to AOI
-        # Use the existing process_bands method but ensure it works correctly
-        self.processed_bands = self.preprocessor.process_bands(
-            band_names=self.multispectral_bands,
-            reference_band="B04",  # Use B04 as 10m reference
-            aoi_geometry=self.config["AOI"],
-            output_resolution="10m"
-        )
-        
-        # Validate and fix any shape inconsistencies
-        self.processed_bands = self._ensure_consistent_shapes(self.processed_bands)
-        
-        logger.info(f"Processed {len(self.processed_bands)} bands")
-        logger.info(f"Band shapes: {[(k, v.shape) for k, v in self.processed_bands.items()]}")
-        
-        return self.processed_bands
-    
-    def _ensure_consistent_shapes(self, processed_bands: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
-        """
-        Ensure all processed bands have consistent shapes by resizing if necessary.
-        
-        Args:
-            processed_bands: Dictionary of processed bands
-            
-        Returns:
-            Dictionary of bands with consistent shapes
-        """
-        logger.info("Ensuring consistent band shapes...")
-        
-        # Find the most common shape (should be the target shape)
-        shapes = {name: band.shape for name, band in processed_bands.items()}
-        shape_counts = {}
-        for shape in shapes.values():
-            shape_counts[shape] = shape_counts.get(shape, 0) + 1
-        
-        # Get the most common shape
-        target_shape = max(shape_counts.items(), key=lambda x: x[1])[0]
-        logger.info(f"Target shape: {target_shape}")
-        
-        # Resize bands that don't match the target shape
-        from scipy.ndimage import zoom
-        
-        consistent_bands = {}
-        for band_name, band_array in processed_bands.items():
-            if band_array.shape == target_shape:
-                consistent_bands[band_name] = band_array
-                logger.info(f"Band {band_name} already has target shape: {band_array.shape}")
-            else:
-                # Calculate zoom factors
-                zoom_factors = (target_shape[0] / band_array.shape[0], 
-                              target_shape[1] / band_array.shape[1])
-                
-                # Resize the band
-                resized_band = zoom(band_array, zoom_factors, order=1)  # Linear interpolation
-                consistent_bands[band_name] = resized_band
-                logger.info(f"Band {band_name} resized from {band_array.shape} to {resized_band.shape}")
-        
-        # Final validation
-        final_shapes = {name: band.shape for name, band in consistent_bands.items()}
-        unique_shapes = set(final_shapes.values())
-        
-        if len(unique_shapes) == 1:
-            logger.info(f"✅ All bands now have consistent shape: {list(unique_shapes)[0]}")
-        else:
-            logger.error(f"❌ Shape consistency failed: {final_shapes}")
-            raise ValueError(f"Failed to ensure consistent shapes: {final_shapes}")
-        
-        return consistent_bands
     
     
     
@@ -334,6 +339,7 @@ class ShipDetectorRX:
                 region.solidity >= min_solidity)
     
     def visualize_results(self, 
+                         processed_bands: Dict[str, np.ndarray],
                          multispectral_stack: np.ndarray,
                          water_mask: np.ndarray,
                          save_path: str = "ship_detection_rx_results.png"):
@@ -341,6 +347,7 @@ class ShipDetectorRX:
         Create comprehensive visualization of RX ship detection results.
         
         Args:
+            processed_bands: Dictionary of processed bands
             multispectral_stack: 3D array (height, width, bands)
             water_mask: 2D boolean mask for valid pixels
             save_path: Path to save the visualization
@@ -348,10 +355,10 @@ class ShipDetectorRX:
         logger.info("Creating visualization...")
         
         # Get bands for visualization
-        red = self.processed_bands["B04"]
-        green = self.processed_bands["B03"]
-        blue = self.processed_bands["B02"]
-        nir = self.processed_bands["B08"]
+        red = processed_bands["B04"]
+        green = processed_bands["B03"]
+        blue = processed_bands["B02"]
+        nir = processed_bands["B08"]
         
         # Create RGB composite
         rgb_composite = np.stack([red, green, blue], axis=-1) / 1000
@@ -374,15 +381,15 @@ class ShipDetectorRX:
         axes[0, 2].axis('off')
         
         # Row 2: Multispectral bands
-        axes[1, 0].imshow(self.processed_bands["B01"], cmap='gray')
+        axes[1, 0].imshow(processed_bands["B01"], cmap='gray')
         axes[1, 0].set_title("B01 (Coastal)")
         axes[1, 0].axis('off')
         
-        axes[1, 1].imshow(self.processed_bands["B05"], cmap='gray')
+        axes[1, 1].imshow(processed_bands["B05"], cmap='gray')
         axes[1, 1].set_title("B05 (Red Edge 1)")
         axes[1, 1].axis('off')
         
-        axes[1, 2].imshow(self.processed_bands["B08"], cmap='gray')
+        axes[1, 2].imshow(processed_bands["B08"], cmap='gray')
         axes[1, 2].set_title("B08 (NIR)")
         axes[1, 2].axis('off')
         
@@ -453,17 +460,17 @@ class ShipDetectorRX:
         
         try:
             # Step 1: Load and preprocess data
-            self.load_and_preprocess_data()
+            processed_bands = load_and_preprocess_data(self.config, self.multispectral_bands)
             
             # Step 2: Create multispectral stack
             multispectral_stack = create_multispectral_stack_from_bands(
-                self.processed_bands, 
+                processed_bands, 
                 self.multispectral_bands
             )
             
             # Step 3: Create water mask
-            if "SCL" in self.processed_bands:
-                water_mask = create_water_mask_from_scl(self.processed_bands["SCL"])
+            if "SCL" in processed_bands:
+                water_mask = create_water_mask_from_scl(processed_bands["SCL"])
             else:
                 # Fallback: assume all pixels are valid
                 water_mask = create_fallback_water_mask(multispectral_stack.shape[:2])
@@ -478,6 +485,7 @@ class ShipDetectorRX:
             
             # Step 5: Visualize results
             self.visualize_results(
+                processed_bands=processed_bands,
                 multispectral_stack=multispectral_stack,
                 water_mask=water_mask
             )
