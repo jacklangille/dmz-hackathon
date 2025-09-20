@@ -197,6 +197,93 @@ class ShipDetectorRX:
         plt.savefig(filepath, dpi=150, bbox_inches='tight')
         plt.close()
     
+    def get_ship_coordinates(self) -> list:
+        """
+        Get the coordinates of detected ships.
+        
+        Returns:
+            List of dictionaries containing ship coordinates and properties.
+            Each dictionary contains:
+            - 'centroid': (row, col) coordinates of ship center
+            - 'pixel_coordinates': List of (row, col) tuples for all ship pixels
+            - 'area': Number of pixels in the ship
+            - 'bounding_box': (min_row, min_col, max_row, max_col) bounding box
+        """
+        if self.ships is None or len(self.ships) == 0:
+            return []
+        
+        ship_coordinates = []
+        
+        # Label connected components in the raw detections
+        labeled_detections = label(self.detections, connectivity=2)
+        
+        # Get properties for all regions
+        regions = regionprops(labeled_detections)
+        
+        # Extract coordinates for ship-like regions
+        for i, region in enumerate(regions):
+            if self._is_ship_like(region):
+                # Get all pixel coordinates for this ship
+                pixel_coords = region.coords  # (row, col) coordinates
+                
+                # Get bounding box
+                min_row, min_col, max_row, max_col = region.bbox
+                
+                ship_info = {
+                    'centroid': region.centroid,  # (row, col) of center
+                    'pixel_coordinates': pixel_coords.tolist(),  # All ship pixels
+                    'area': int(region.area),
+                    'bounding_box': (min_row, min_col, max_row, max_col)
+                }
+                ship_coordinates.append(ship_info)
+        
+        return ship_coordinates
+    
+    def get_ship_centroids(self) -> list:
+        """
+        Get just the centroid coordinates of detected ships.
+        
+        Returns:
+            List of (row, col) tuples representing ship centroids
+        """
+        ship_coords = self.get_ship_coordinates()
+        return [ship['centroid'] for ship in ship_coords]
+    
+    def get_ship_bounding_boxes(self) -> list:
+        """
+        Get the bounding boxes of detected ships.
+        
+        Returns:
+            List of (min_row, min_col, max_row, max_col) tuples
+        """
+        ship_coords = self.get_ship_coordinates()
+        return [ship['bounding_box'] for ship in ship_coords]
+    
+    def save_ship_coordinates(self, filepath: str = "ship_coordinates.json") -> None:
+        """
+        Save ship coordinates to a JSON file.
+        
+        Args:
+            filepath: Path where to save the coordinates file
+        """
+        import json
+        
+        ship_coords = self.get_ship_coordinates()
+        
+        # Convert numpy arrays to lists for JSON serialization
+        json_coords = []
+        for ship in ship_coords:
+            json_ship = {
+                'centroid': [float(ship['centroid'][0]), float(ship['centroid'][1])],
+                'pixel_coordinates': ship['pixel_coordinates'],
+                'area': ship['area'],
+                'bounding_box': ship['bounding_box']
+            }
+            json_coords.append(json_ship)
+        
+        with open(filepath, 'w') as f:
+            json.dump(json_coords, f, indent=2)
+    
     def visualize_results(self, 
                          multispectral_stack: np.ndarray,
                          water_mask: np.ndarray,
@@ -341,7 +428,10 @@ class ShipDetectorRX:
         # Step 3: Save ship mask
         self.save_ship_mask("ship_mask.png")
         
-        # Step 4: Print summary
+        # Step 4: Save ship coordinates
+        self.save_ship_coordinates("ship_coordinates.json")
+        
+        # Step 5: Print summary
         self.print_ship_summary()
 
 
