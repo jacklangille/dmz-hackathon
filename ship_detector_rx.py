@@ -91,6 +91,7 @@ class ShipDetectorRX:
         logger.info(f"Discovered bands: {list(bands.keys())}")
         
         # Process bands to common resolution and clip to AOI
+        # Use the existing process_bands method but ensure it works correctly
         self.processed_bands = self.preprocessor.process_bands(
             band_names=self.multispectral_bands,
             reference_band="B04",  # Use B04 as 10m reference
@@ -98,10 +99,65 @@ class ShipDetectorRX:
             output_resolution="10m"
         )
         
+        # Validate and fix any shape inconsistencies
+        self.processed_bands = self._ensure_consistent_shapes(self.processed_bands)
+        
         logger.info(f"Processed {len(self.processed_bands)} bands")
         logger.info(f"Band shapes: {[(k, v.shape) for k, v in self.processed_bands.items()]}")
         
         return self.processed_bands
+    
+    def _ensure_consistent_shapes(self, processed_bands: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
+        """
+        Ensure all processed bands have consistent shapes by resizing if necessary.
+        
+        Args:
+            processed_bands: Dictionary of processed bands
+            
+        Returns:
+            Dictionary of bands with consistent shapes
+        """
+        logger.info("Ensuring consistent band shapes...")
+        
+        # Find the most common shape (should be the target shape)
+        shapes = {name: band.shape for name, band in processed_bands.items()}
+        shape_counts = {}
+        for shape in shapes.values():
+            shape_counts[shape] = shape_counts.get(shape, 0) + 1
+        
+        # Get the most common shape
+        target_shape = max(shape_counts.items(), key=lambda x: x[1])[0]
+        logger.info(f"Target shape: {target_shape}")
+        
+        # Resize bands that don't match the target shape
+        from scipy.ndimage import zoom
+        
+        consistent_bands = {}
+        for band_name, band_array in processed_bands.items():
+            if band_array.shape == target_shape:
+                consistent_bands[band_name] = band_array
+                logger.info(f"Band {band_name} already has target shape: {band_array.shape}")
+            else:
+                # Calculate zoom factors
+                zoom_factors = (target_shape[0] / band_array.shape[0], 
+                              target_shape[1] / band_array.shape[1])
+                
+                # Resize the band
+                resized_band = zoom(band_array, zoom_factors, order=1)  # Linear interpolation
+                consistent_bands[band_name] = resized_band
+                logger.info(f"Band {band_name} resized from {band_array.shape} to {resized_band.shape}")
+        
+        # Final validation
+        final_shapes = {name: band.shape for name, band in consistent_bands.items()}
+        unique_shapes = set(final_shapes.values())
+        
+        if len(unique_shapes) == 1:
+            logger.info(f"✅ All bands now have consistent shape: {list(unique_shapes)[0]}")
+        else:
+            logger.error(f"❌ Shape consistency failed: {final_shapes}")
+            raise ValueError(f"Failed to ensure consistent shapes: {final_shapes}")
+        
+        return consistent_bands
     
     def create_multispectral_stack(self) -> np.ndarray:
         """
