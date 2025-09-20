@@ -7,7 +7,7 @@ This module implements ship detection using the RX detector on multispectral
 
 import numpy as np
 import matplotlib.pyplot as plt
-from typing import Dict, Tuple
+from typing import Tuple
 import logging
 
 from rx_detector import RXDetector, post_process_detections
@@ -152,7 +152,6 @@ class ShipDetectorRX:
                 region.solidity >= min_solidity)
     
     def visualize_results(self, 
-                         processed_bands: Dict[str, np.ndarray],
                          multispectral_stack: np.ndarray,
                          water_mask: np.ndarray,
                          save_path: str = "ship_detection_rx_results.png"):
@@ -160,18 +159,27 @@ class ShipDetectorRX:
         Create comprehensive visualization of RX ship detection results.
         
         Args:
-            processed_bands: Dictionary of processed bands
-            multispectral_stack: 3D array (height, width, bands)
+            multispectral_stack: 3D array (height, width, bands) in order [B01, B02, B03, B04, B05, B06, B07, B08]
             water_mask: 2D boolean mask for valid pixels
             save_path: Path to save the visualization
         """
         logger.info("Creating visualization...")
         
+        # Extract bands from multispectral stack (order: B01, B02, B03, B04, B05, B06, B07, B08)
+        b01 = multispectral_stack[:, :, 0]  # Coastal aerosol
+        b02 = multispectral_stack[:, :, 1]  # Blue
+        b03 = multispectral_stack[:, :, 2]  # Green
+        b04 = multispectral_stack[:, :, 3]  # Red
+        b05 = multispectral_stack[:, :, 4]  # Red Edge 1
+        b06 = multispectral_stack[:, :, 5]  # Red Edge 2
+        b07 = multispectral_stack[:, :, 6]  # Red Edge 3
+        b08 = multispectral_stack[:, :, 7]  # NIR
+        
         # Get bands for visualization
-        red = processed_bands["B04"]
-        green = processed_bands["B03"]
-        blue = processed_bands["B02"]
-        nir = processed_bands["B08"]
+        red = b04
+        green = b03
+        blue = b02
+        nir = b08
         
         # Create RGB composite
         rgb_composite = np.stack([red, green, blue], axis=-1) / 1000
@@ -194,15 +202,15 @@ class ShipDetectorRX:
         axes[0, 2].axis('off')
         
         # Row 2: Multispectral bands
-        axes[1, 0].imshow(processed_bands["B01"], cmap='gray')
+        axes[1, 0].imshow(b01, cmap='gray')
         axes[1, 0].set_title("B01 (Coastal)")
         axes[1, 0].axis('off')
         
-        axes[1, 1].imshow(processed_bands["B05"], cmap='gray')
+        axes[1, 1].imshow(b05, cmap='gray')
         axes[1, 1].set_title("B05 (Red Edge 1)")
         axes[1, 1].axis('off')
         
-        axes[1, 2].imshow(processed_bands["B08"], cmap='gray')
+        axes[1, 2].imshow(b08, cmap='gray')
         axes[1, 2].set_title("B08 (NIR)")
         axes[1, 2].axis('off')
         
@@ -261,7 +269,6 @@ class ShipDetectorRX:
     def run_complete_pipeline(self, 
                              multispectral_stack: np.ndarray,
                              water_mask: np.ndarray,
-                             processed_bands: Dict[str, np.ndarray],
                              detection_mode: str = "fast",
                              threshold_percentile: float = 99.5) -> None:
         """
@@ -270,7 +277,6 @@ class ShipDetectorRX:
         Args:
             multispectral_stack: Preprocessed multispectral data stack
             water_mask: Water mask for filtering detections
-            processed_bands: Dictionary of processed band data
             detection_mode: RX detection mode ("fast", "adaptive", "pixel_wise")
             threshold_percentile: Detection threshold percentile
         """
@@ -288,7 +294,6 @@ class ShipDetectorRX:
             
             # Step 2: Visualize results
             self.visualize_results(
-                processed_bands=processed_bands,
                 multispectral_stack=multispectral_stack,
                 water_mask=water_mask
             )
@@ -307,14 +312,13 @@ class ShipDetectorRX:
 def main():
     """Main function to run RX ship detection."""
     # Prepare data
-    multispectral_stack, water_mask, processed_bands = prepare_detection_data()
+    multispectral_stack, water_mask, _ = prepare_detection_data()
     
     # Run detection pipeline
     detector = ShipDetectorRX()
     detector.run_complete_pipeline(
         multispectral_stack=multispectral_stack,
         water_mask=water_mask,
-        processed_bands=processed_bands,
         detection_mode="fast", 
         threshold_percentile=99.5
     )
