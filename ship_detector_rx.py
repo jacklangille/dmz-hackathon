@@ -47,6 +47,45 @@ def create_multispectral_stack_from_bands(processed_bands: Dict[str, np.ndarray]
     return multispectral_stack
 
 
+def create_water_mask_from_scl(scl_band: np.ndarray) -> np.ndarray:
+    """
+    Create water mask from Scene Classification Layer.
+    
+    Args:
+        scl_band: Scene Classification Layer band
+        
+    Returns:
+        Boolean water mask
+    """
+    # Water classes in SCL
+    water_classes = [6, 7, 10, 11]  # Water, water vapor, etc.
+    
+    # Create water mask
+    water_mask = np.isin(scl_band, water_classes)
+    
+    # Add small dilation to include near-shore areas
+    from skimage.morphology import binary_dilation, disk
+    water_mask = binary_dilation(water_mask, disk(2))
+    
+    logger.info(f"Water pixels: {water_mask.sum()} / {water_mask.size} ({water_mask.mean()*100:.1f}%)")
+    
+    return water_mask
+
+
+def create_fallback_water_mask(shape: tuple) -> np.ndarray:
+    """
+    Create a fallback water mask when SCL band is not available.
+    
+    Args:
+        shape: Shape of the image (height, width)
+        
+    Returns:
+        Boolean mask with all pixels set to True
+    """
+    logger.warning("No SCL band found, using full image mask")
+    return np.ones(shape, dtype=bool)
+
+
 class ShipDetectorRX:
     """
     Ship detector using RX anomaly detection on multispectral data.
@@ -186,29 +225,6 @@ class ShipDetectorRX:
         return consistent_bands
     
     
-    def create_water_mask(self, scl_band: np.ndarray) -> np.ndarray:
-        """
-        Create water mask from Scene Classification Layer.
-        
-        Args:
-            scl_band: Scene Classification Layer band
-            
-        Returns:
-            Boolean water mask
-        """
-        # Water classes in SCL
-        water_classes = [6, 7, 10, 11]  # Water, water vapor, etc.
-        
-        # Create water mask
-        water_mask = np.isin(scl_band, water_classes)
-        
-        # Add small dilation to include near-shore areas
-        from skimage.morphology import binary_dilation, disk
-        water_mask = binary_dilation(water_mask, disk(2))
-        
-        logger.info(f"Water pixels: {water_mask.sum()} / {water_mask.size} ({water_mask.mean()*100:.1f}%)")
-        
-        return water_mask
     
     def detect_ships(self, 
                     multispectral_stack: np.ndarray,
@@ -447,11 +463,10 @@ class ShipDetectorRX:
             
             # Step 3: Create water mask
             if "SCL" in self.processed_bands:
-                water_mask = self.create_water_mask(self.processed_bands["SCL"])
+                water_mask = create_water_mask_from_scl(self.processed_bands["SCL"])
             else:
                 # Fallback: assume all pixels are valid
-                water_mask = np.ones(multispectral_stack.shape[:2], dtype=bool)
-                logger.warning("No SCL band found, using full image mask")
+                water_mask = create_fallback_water_mask(multispectral_stack.shape[:2])
             
             # Step 4: Detect ships using RX
             self.detect_ships(
