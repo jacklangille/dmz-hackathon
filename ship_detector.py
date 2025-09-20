@@ -149,23 +149,24 @@ class ShipDetector:
         return self.processed_bands
     
     def detect_ships(self, 
-                    bg_radius=20,      # Larger background for ships
-                    guard_radius=5,    # Larger guard to avoid ship edges
+                    bg_radius=15,      # Balanced background for ships
+                    guard_radius=3,    # Balanced guard to avoid ship edges
                     k=2.5,             # Moderate threshold
-                    min_valid=100,     # Need more valid pixels for ships
+                    min_valid=50,      # Reasonable valid pixels for ships
                     min_area=25,       # Ships are larger than small targets
-                    cleanup_open=5,    # Larger cleanup for ship shapes
-                    fast_mode=True):   # Use fast mode for initial testing
+                    cleanup_open=3,    # Balanced cleanup for ship shapes
+                    fast_mode=True):   # Use fast mode for development and testing
         """
         Detect ships using CFAR algorithm.
         
         Args:
-            bg_radius: Background window radius
-            guard_radius: Guard window radius
-            k: Threshold multiplier
-            min_valid: Minimum valid pixels for statistics
-            min_area: Minimum ship area in pixels
-            cleanup_open: Morphological opening size
+            bg_radius: Background window radius (default: 15 for fast mode)
+            guard_radius: Guard window radius (default: 3 for fast mode)
+            k: Threshold multiplier (default: 2.5)
+            min_valid: Minimum valid pixels for statistics (default: 50)
+            min_area: Minimum ship area in pixels (default: 25)
+            cleanup_open: Morphological opening size (default: 3)
+            fast_mode: Use fast CFAR implementation (default: True)
         """
         print("🚢 Detecting ships with CFAR...")
         
@@ -397,7 +398,6 @@ class ShipDetector:
         
         plt.tight_layout()
         plt.savefig(save_path, dpi=150, bbox_inches='tight')
-        plt.show()
         
         print(f"✅ Visualization saved to {save_path}")
     
@@ -421,7 +421,7 @@ class ShipDetector:
             print(f"  Length: {ship['major_axis_length']:.1f} pixels")
             print()
     
-    def run_complete_pipeline(self):
+    def run_complete_pipeline(self, fast_mode=True):
         """Run the complete ship detection pipeline."""
         print("🚀 Starting Ship Detection Pipeline")
         print("="*50)
@@ -430,8 +430,8 @@ class ShipDetector:
             # Step 1: Load and preprocess data
             self.load_and_preprocess_data()
             
-            # Step 2: Detect ships (using ultra-fast mode for initial testing)
-            self.detect_ships_ultra_fast()
+            # Step 2: Detect ships (using fast mode for development and testing)
+            self.detect_ships(fast_mode=fast_mode)
             
             # Step 3: Visualize results
             self.visualize_results()
@@ -450,7 +450,7 @@ class ShipDetector:
 def main():
     """Main function to run ship detection."""
     detector = ShipDetector()
-    detector.run_complete_pipeline()
+    detector.run_complete_pipeline(fast_mode=False)
 
 
 if __name__ == "__main__":

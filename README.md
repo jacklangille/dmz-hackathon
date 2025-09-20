@@ -262,10 +262,10 @@ var = np.maximum(sum_sq_ring / np.maximum(cnt_ring, 1e-6) - mean**2, 0.0)
 
 ### Fast CFAR Usage
 
-#### **Standard Fast Mode**
+#### **Fast Mode (Default)**
 ```python
-# Use fast CFAR for development and testing
-detections, scores = detector.detect_ships(fast_mode=True)
+# Fast CFAR is now the default for development and testing
+detections, scores = detector.detect_ships()  # fast_mode=True by default
 ```
 
 #### **Ultra-Fast Mode**
@@ -454,12 +454,13 @@ AOI:                        # Area of Interest (GeoJSON format)
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `bg_radius` | 20 | Background window radius (pixels) |
-| `guard_radius` | 5 | Guard window radius (pixels) |
+| `bg_radius` | 15 | Background window radius (pixels) |
+| `guard_radius` | 3 | Guard window radius (pixels) |
 | `k` | 2.5 | Threshold multiplier |
-| `min_valid` | 100 | Minimum valid pixels for statistics |
+| `min_valid` | 50 | Minimum valid pixels for statistics |
 | `min_area` | 25 | Minimum ship area (pixels) |
-| `cleanup_open` | 5 | Morphological opening size |
+| `cleanup_open` | 3 | Morphological opening size |
+| `fast_mode` | True | Use fast CFAR implementation |
 
 ### Ship Filtering Criteria
 
