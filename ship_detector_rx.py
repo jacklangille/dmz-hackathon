@@ -177,6 +177,19 @@ def ensure_consistent_shapes(processed_bands: Dict[str, np.ndarray]) -> Dict[str
     return consistent_bands
 
 
+# Sentinel-2 multispectral bands configuration
+SENTINEL2_MULTISPECTRAL_BANDS = [
+    "B01",  # Coastal aerosol (443nm)
+    "B02",  # Blue (490nm)
+    "B03",  # Green (560nm)
+    "B04",  # Red (665nm)
+    "B05",  # Red Edge 1 (705nm)
+    "B06",  # Red Edge 2 (740nm)
+    "B07",  # Red Edge 3 (783nm)
+    "B08",  # NIR (842nm)
+]
+
+
 class ShipDetectorRX:
     """
     Ship detector using RX anomaly detection on multispectral data.
@@ -210,17 +223,6 @@ class ShipDetectorRX:
             fast_mode=True
         )
         
-        # 8-band multispectral bands for Sentinel-2
-        self.multispectral_bands = [
-            "B01",  # Coastal aerosol (443nm)
-            "B02",  # Blue (490nm)
-            "B03",  # Green (560nm)
-            "B04",  # Red (665nm)
-            "B05",  # Red Edge 1 (705nm)
-            "B06",  # Red Edge 2 (740nm)
-            "B07",  # Red Edge 3 (783nm)
-            "B08",  # NIR (842nm)
-        ]
         
     def _load_config(self) -> Dict:
         """Load configuration from YAML file."""
@@ -460,12 +462,12 @@ class ShipDetectorRX:
         
         try:
             # Step 1: Load and preprocess data
-            processed_bands = load_and_preprocess_data(self.config, self.multispectral_bands)
+            processed_bands = load_and_preprocess_data(self.config, SENTINEL2_MULTISPECTRAL_BANDS)
             
             # Step 2: Create multispectral stack
             multispectral_stack = create_multispectral_stack_from_bands(
                 processed_bands, 
-                self.multispectral_bands
+                SENTINEL2_MULTISPECTRAL_BANDS
             )
             
             # Step 3: Create water mask
