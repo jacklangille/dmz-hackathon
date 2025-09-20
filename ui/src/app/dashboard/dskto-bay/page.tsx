@@ -68,13 +68,13 @@ export default function DiskoBayPage() {
                       Satellite Imagery
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="p-0 h-full flex-1 flex items-center justify-center overflow-hidden">
+                  <CardContent>
                     {/* Satellite Image */}
-                    <div className="flex items-center justify-center overflow-hidden">
+                    <div className="flex items-center justify-center overflow-hidden border-2 border-gray-200 bg-slate-100 p-4">
                       <Image
                         src={rawSatelliteImage}
                         alt="Raw Satellite Imagery"
-                        className="h-[600px] object-contain"
+                        className="h-[550px] object-contain"
                       />
                     </div>
                   </CardContent>
@@ -90,11 +90,11 @@ export default function DiskoBayPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex items-center justify-center overflow-hidden">
+                    <div className="flex items-center justify-center overflow-hidden border-2 border-gray-200 bg-slate-100 p-4">
                       <Image
                         src={waterMaskImage}
                         alt="Water Mask"
-                        className="h-[600px] object-contain"
+                        className="h-[550px] object-contain"
                       />
                     </div>
                   </CardContent>
@@ -110,11 +110,11 @@ export default function DiskoBayPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex items-center justify-center overflow-hidden border-2 border-gray-200 rounded-lg bg-gray-50">
+                    <div className="flex items-center justify-center overflow-hidden border-2 border-gray-200 bg-slate-100 p-4">
                       <Image
                         src={vesselDetectionImage}
                         alt="Vessel Detection"
-                        className="h-[600px] object-contain"
+                        className="h-[550px] object-contain"
                       />
                     </div>
                   </CardContent>
