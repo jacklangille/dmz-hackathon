@@ -46,6 +46,9 @@ def masked_cfar(
     score : 2D float array
         Optional score = (img - mean) / std where valid; NaN elsewhere.
     """
+
+    print("Starting masked CFAR")
+
     img = img.astype(np.float32)
     M = (mask > 0).astype(np.float32)
 
@@ -61,6 +64,8 @@ def masked_cfar(
     # zero out guard window (including center)
     K[c0-guard_radius:c0+guard_radius+1, c0-guard_radius:c0+guard_radius+1] = 0.0
 
+    print("Ring kernel built")
+
     # --- Convolutions for masked sums and counts over ring ---
     # sum over ring of masked image
     sum_ring = convolve(img * M, K, mode="reflect")
@@ -69,11 +74,15 @@ def masked_cfar(
     # count of valid pixels contributing
     cnt_ring = convolve(M, K, mode="reflect")
 
+    print("Convolutions for masked sums and counts over ring done")
+
     # --- Local mean and std (only where enough valid neighbors) ---
     with np.errstate(invalid="ignore", divide="ignore"):
         mean = sum_ring / np.maximum(cnt_ring, 1e-6)
         var = np.maximum(sumsq_ring / np.maximum(cnt_ring, 1e-6) - mean**2, 0.0)
         std = np.sqrt(var + 1e-6)
+
+    print("Local mean and std done")
 
     # threshold only where: inside mask & enough valid pixels
     valid = (M > 0) & (cnt_ring >= min_valid)
@@ -85,6 +94,8 @@ def masked_cfar(
         det = opening(det, footprint_rectangle((cleanup_open, cleanup_open)))
     if min_area and min_area > 1:
         det = remove_small_objects(det, min_size=min_area)
+
+    print("Cleanup done")
 
     # Optional score (z-like)
     score = np.full_like(img, np.nan, dtype=np.float32)

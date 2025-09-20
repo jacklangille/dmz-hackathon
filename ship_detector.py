@@ -16,6 +16,7 @@ from skimage.morphology import binary_dilation, disk
 # Import your modules
 from icebreaker.utils.load import Sentinel2Preprocessor
 from masked_cfar import masked_cfar
+from masked_cfar_fast import masked_cfar_fast, masked_cfar_ultra_fast
 
 
 class ShipDetector:
@@ -153,7 +154,8 @@ class ShipDetector:
                     k=2.5,             # Moderate threshold
                     min_valid=100,     # Need more valid pixels for ships
                     min_area=25,       # Ships are larger than small targets
-                    cleanup_open=5):   # Larger cleanup for ship shapes
+                    cleanup_open=5,    # Larger cleanup for ship shapes
+                    fast_mode=True):   # Use fast mode for initial testing
         """
         Detect ships using CFAR algorithm.
         
@@ -190,19 +192,81 @@ class ShipDetector:
             raise ValueError("Intensity image and water mask must have the same shape")
         
         # Run CFAR detection
-        self.detections, self.scores = masked_cfar(
+        if fast_mode:
+            print("⚡ Using FAST CFAR mode for initial testing...")
+            self.detections, self.scores = masked_cfar_fast(
+                img=intensity_img,
+                mask=water_mask,
+                bg_radius=bg_radius,
+                guard_radius=guard_radius,
+                k=k,
+                min_valid=min_valid,
+                min_area=min_area,
+                use_log=False,  # Optical data, not SAR
+                cleanup_open=cleanup_open,
+                fast_mode=True
+            )
+        else:
+            print("🐌 Using standard CFAR mode...")
+            self.detections, self.scores = masked_cfar(
+                img=intensity_img,
+                mask=water_mask,
+                bg_radius=bg_radius,
+                guard_radius=guard_radius,
+                k=k,
+                min_valid=min_valid,
+                min_area=min_area,
+                use_log=False,  # Optical data, not SAR
+                cleanup_open=cleanup_open
+            )
+        
+        print(f"🎯 Raw detections: {self.detections.sum()}")
+        
+        # Analyze detections
+        self._analyze_detections(intensity_img)
+        
+        return self.detections, self.scores
+    
+    def detect_ships_ultra_fast(self, 
+                               bg_radius=8,      # Smaller for speed
+                               k=2.5,            # Moderate threshold
+                               min_valid=20,     # Lower threshold
+                               min_area=10):     # Smaller minimum area
+        """
+        Ultra-fast ship detection for initial testing.
+        
+        Uses simplified CFAR with minimal processing for quick results.
+        """
+        print("🚀 ULTRA-FAST ship detection for initial testing...")
+        
+        # Validate that all bands have the same shape
+        band_shapes = {name: band.shape for name, band in self.processed_bands.items()}
+        unique_shapes = set(band_shapes.values())
+        if len(unique_shapes) > 1:
+            print(f"❌ Error: Bands have different shapes: {band_shapes}")
+            raise ValueError(f"All bands must have the same shape. Found: {band_shapes}")
+        
+        print(f"✅ All bands have consistent shape: {list(unique_shapes)[0]}")
+        
+        # Create water mask
+        water_mask = self.create_water_mask(self.processed_bands["SCL"])
+        print(f"🌊 Water pixels: {water_mask.sum()} / {water_mask.size} ({water_mask.mean()*100:.1f}%)")
+        
+        # Create intensity image
+        intensity_img = self.create_ship_intensity_image(self.processed_bands)
+        print(f"📈 Intensity range: {intensity_img.min():.2f} - {intensity_img.max():.2f}")
+        
+        # Run ultra-fast CFAR detection
+        self.detections, self.scores = masked_cfar_ultra_fast(
             img=intensity_img,
             mask=water_mask,
             bg_radius=bg_radius,
-            guard_radius=guard_radius,
             k=k,
             min_valid=min_valid,
-            min_area=min_area,
-            use_log=False,  # Optical data, not SAR
-            cleanup_open=cleanup_open
+            min_area=min_area
         )
         
-        print(f"🎯 Raw detections: {self.detections.sum()}")
+        print(f"🎯 Ultra-fast detections: {self.detections.sum()}")
         
         # Analyze detections
         self._analyze_detections(intensity_img)
@@ -317,11 +381,15 @@ class ShipDetector:
         # Overlay detections on RGB
         rgb_overlay = rgb_composite.copy()
         rgb_overlay[self.detections] = [1, 0, 0]  # Red for detections
+
+        print(f"RGB overlay shape: {rgb_overlay.shape}")
         
         # Mark ship centroids
         for ship in self.ships:
             row, col = ship["centroid_rc"]
             axes[1, 2].plot(col, row, 'yo', markersize=8, markeredgecolor='red', markeredgewidth=2)
+
+        print("Marked ship centroids")
         
         axes[1, 2].imshow(rgb_overlay)
         axes[1, 2].set_title(f"Ships Detected ({len(self.ships)})")
@@ -362,8 +430,8 @@ class ShipDetector:
             # Step 1: Load and preprocess data
             self.load_and_preprocess_data()
             
-            # Step 2: Detect ships
-            self.detect_ships()
+            # Step 2: Detect ships (using ultra-fast mode for initial testing)
+            self.detect_ships_ultra_fast()
             
             # Step 3: Visualize results
             self.visualize_results()
