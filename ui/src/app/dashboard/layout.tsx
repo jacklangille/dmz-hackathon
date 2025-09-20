@@ -19,9 +19,9 @@ export default function DashboardLayout({
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
-      <div className="w-20 bg-white border-r border-gray-200 flex flex-col items-center py-6 space-y-8">
+      <div className="w-20 bg-white border-r border-gray-200 flex flex-col items-center py-6 space-y-6">
         {/* Scout Icon */}
-        <div className="w-12 h-12 flex items-center justify-center">
+        <div className="w-12 h-12 mb-12 flex items-center justify-center">
           <Image
             src={scoutIcon}
             alt="Arctic Scout Icon"
