@@ -235,4 +235,4 @@ def prepare_detection_data(config_path: str = "icebreaker/config/settings.yaml")
         water_mask = create_fallback_water_mask(multispectral_stack.shape[:2])
     
     logger.info("✅ Data preparation completed")
-    return multispectral_stack, water_mask, processed_bands
+    return multispectral_stack, water_mask

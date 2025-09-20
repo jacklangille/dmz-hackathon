@@ -257,34 +257,28 @@ class ShipDetectorRX:
             detection_mode: RX detection mode ("fast", "adaptive", "pixel_wise")
             threshold_percentile: Detection threshold percentile
         """
-        try:
-            # Step 1: Detect ships using RX
-            self.detect_ships(
-                multispectral_stack=multispectral_stack,
-                water_mask=water_mask,
-                detection_mode=detection_mode,
-                threshold_percentile=threshold_percentile
-            )
-            
-            # Step 2: Visualize results
-            self.visualize_results(
-                multispectral_stack=multispectral_stack,
-                water_mask=water_mask
-            )
-            
-            # Step 3: Print summary
-            self.print_ship_summary()
-            
-        except Exception as e:
-            print(f"❌ Error in pipeline: {e}")
-            import traceback
-            traceback.print_exc()
+        # Step 1: Detect ships using RX
+        self.detect_ships(
+            multispectral_stack=multispectral_stack,
+            water_mask=water_mask,
+            detection_mode=detection_mode,
+            threshold_percentile=threshold_percentile
+        )
+        
+        # Step 2: Visualize results
+        self.visualize_results(
+            multispectral_stack=multispectral_stack,
+            water_mask=water_mask
+        )
+        
+        # Step 3: Print summary
+        self.print_ship_summary()
 
 
 def main():
     """Main function to run RX ship detection."""
     # Prepare data
-    multispectral_stack, water_mask, _ = prepare_detection_data()
+    multispectral_stack, water_mask = prepare_detection_data()
     
     # Run detection pipeline
     detector = ShipDetectorRX()
