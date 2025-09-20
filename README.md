@@ -6,13 +6,11 @@ A complete pipeline for detecting ships in satellite imagery using the Constant 
 
 - [Overview](#overview)
 - [Architecture](#architecture)
-- [Data Processing Pipeline](#data-processing-pipeline)
-- [Ship Detection Inputs](#ship-detection-inputs)
-- [Ship Detection Algorithm](#ship-detection-algorithm)
+- [Data Processing](#data-processing)
+- [Ship Detection](#ship-detection)
 - [Installation](#installation)
 - [Usage](#usage)
 - [Configuration](#configuration)
-- [Algorithm Details](#algorithm-details)
 - [Output](#output)
 - [Customization](#customization)
 - [Troubleshooting](#troubleshooting)
@@ -51,11 +49,11 @@ This project implements a ship detection system that:
                        └──────────────────┘    └─────────────────┘
 ```
 
-## 📊 Data Processing Pipeline
+## 📊 Data Processing
 
 ### Input Data Structure
 
-The pipeline processes **Sentinel-2 Level-2A SAFE format** data with the following structure:
+The pipeline processes **Sentinel-2 Level-2A SAFE format** data:
 
 ```
 s2_data.SAFE/
@@ -75,61 +73,12 @@ s2_data.SAFE/
 
 ### Processing Steps
 
-#### 1. **Band Discovery & Validation**
-```python
-# Discovers available bands in SAFE directory
-bands = preprocessor.discover_bands(["B02", "B03", "B04", "B08", "SCL"])
-```
-
-**What happens:**
-- Scans GRANULE subdirectories for band files
-- Validates file existence and naming conventions
-- Maps band names to file paths
-- Handles multiple resolution variants (10m, 20m, 60m)
-
-#### 2. **Resolution Standardization**
-```python
-# Resamples all bands to 10m resolution
-resampled_array, _ = preprocessor.resample_band_to_reference(
-    bands[band_name], reference_path
-)
-```
-
-**What happens:**
-- Uses B04 (Red) band as 10m reference
-- Resamples 20m bands (SCL) to 10m using bilinear interpolation
-- Ensures all bands have identical spatial dimensions
-- Maintains geospatial accuracy and coordinate systems
-
-#### 3. **Area of Interest (AOI) Clipping**
-```python
-# Clips bands to specified geographic region
-clipped_array, _, _ = preprocessor.clip_to_area_of_interest(
-    band_path, aoi_geometry
-)
-```
-
-**What happens:**
-- Applies GeoJSON polygon clipping to reduce data size
-- Reprojects AOI coordinates to match raster CRS
-- Crops bands to exact AOI boundaries
-- Updates geospatial metadata (transform, bounds)
-
-#### 4. **Data Validation**
-```python
-# Ensures all processed bands have consistent dimensions
-band_shapes = {name: band.shape for name, band in processed_bands.items()}
-assert len(set(band_shapes.values())) == 1, "All bands must have same shape"
-```
-
-**What happens:**
-- Validates shape consistency across all bands
-- Checks for data integrity and completeness
-- Provides detailed error messages for debugging
+1. **Band Discovery**: Scans GRANULE directories for band files (B02, B03, B04, B08, SCL)
+2. **Resolution Standardization**: Resamples all bands to 10m resolution using B04 as reference
+3. **AOI Clipping**: Applies GeoJSON polygon clipping to reduce data size
+4. **Data Validation**: Ensures all bands have consistent dimensions
 
 ### Output Data Structure
-
-After processing, the pipeline produces:
 
 ```python
 processed_bands = {
@@ -145,12 +94,10 @@ processed_bands = {
 - **Shape**: All bands have identical dimensions (e.g., 2488×2213)
 - **Resolution**: 10m per pixel
 - **Data Type**: float32 for numerical processing
-- **Coordinate System**: UTM projection matching original data
-- **Geographic Extent**: Clipped to AOI boundaries
 
-## 🎯 Ship Detection Inputs
+## 🎯 Ship Detection
 
-### Primary Inputs to `ship_detector.py`
+### Inputs to `ship_detector.py`
 
 #### 1. **Intensity Image**
 ```python
@@ -162,19 +109,6 @@ intensity_img = bands["B08"].astype(np.float32)
 - Ships appear bright in NIR due to metal surfaces
 - High contrast against water background
 - Less affected by atmospheric scattering
-- Optimal for CFAR detection algorithms
-
-**Alternative Intensity Methods:**
-```python
-# Method 1: NDVI-like index
-intensity = (nir - red) / (nir + red + 1e-6)
-
-# Method 2: RGB composite  
-intensity = (red + green + blue) / 3.0
-
-# Method 3: Custom weighted combination
-intensity = 0.5*nir + 0.3*red + 0.2*green
-```
 
 #### 2. **Water Mask**
 ```python
@@ -188,11 +122,6 @@ water_mask = binary_dilation(water_mask, disk(2))  # Include near-shore areas
 - **Class 7**: Water vapor/clouds over water
 - **Dilation**: Includes 2-pixel buffer around water for ships near shore
 
-**Mask Properties:**
-- **Type**: Boolean array (True=water, False=land)
-- **Shape**: Matches intensity image dimensions
-- **Coverage**: Typically 80-95% of AOI for maritime regions
-
 #### 3. **CFAR Parameters**
 ```python
 cfar_params = {
@@ -205,57 +134,21 @@ cfar_params = {
 }
 ```
 
-## 🔍 Ship Detection Algorithm
-
-### CFAR (Constant False Alarm Rate) Methodology
+### CFAR Algorithm
 
 #### 1. **Ring Kernel Construction**
-```python
-# Creates donut-shaped detection window
-ksize = 2 * bg_radius + 1  # Total kernel size
-K = np.ones((ksize, ksize), dtype=np.float32)
-# Zero out guard region (center + guard ring)
-K[c0-guard_radius:c0+guard_radius+1, c0-guard_radius:c0+guard_radius+1] = 0.0
-```
-
-**Kernel Structure:**
-```
-┌─────────────────────────────────┐
-│ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 │ ← Background ring
-│ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 │   (used for statistics)
-│ 1 1 0 0 0 0 0 0 0 0 0 0 0 1 1 │
-│ 1 1 0 0 0 0 0 0 0 0 0 0 0 1 1 │ ← Guard ring
-│ 1 1 0 0 0 0 0 0 0 0 0 0 0 1 1 │   (excluded from stats)
-│ 1 1 0 0 0 0 0 0 0 0 0 0 0 1 1 │
-│ 1 1 0 0 0 0 0 0 0 0 0 0 0 1 1 │
-│ 1 1 0 0 0 0 0 0 0 0 0 0 0 1 1 │
-│ 1 1 0 0 0 0 0 0 0 0 0 0 0 1 1 │
-│ 1 1 0 0 0 0 0 0 0 0 0 0 0 1 1 │
-│ 1 1 0 0 0 0 0 0 0 0 0 0 0 1 1 │
-│ 1 1 0 0 0 0 0 0 0 0 0 0 0 1 1 │
-│ 1 1 0 0 0 0 0 0 0 0 0 0 0 1 1 │
-│ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 │
-└─────────────────────────────────┘
-```
+Creates a donut-shaped detection window:
+- **Background ring**: Used for local statistics
+- **Guard ring**: Excluded from statistics to avoid target contamination
+- **Center**: Test pixel
 
 #### 2. **Local Statistics Computation**
 ```python
 # Efficient convolution-based statistics
 sum_ring = convolve(img * mask, K, mode="reflect")
-sumsq_ring = convolve((img**2) * mask, K, mode="reflect") 
-cnt_ring = convolve(mask, K, mode="reflect")
-
-# Compute mean and standard deviation
 mean = sum_ring / np.maximum(cnt_ring, 1e-6)
-var = np.maximum(sumsq_ring / np.maximum(cnt_ring, 1e-6) - mean**2, 0.0)
 std = np.sqrt(var + 1e-6)
 ```
-
-**Statistical Properties:**
-- **Mean**: Average intensity in background ring
-- **Variance**: Intensity variability in background ring  
-- **Standard Deviation**: Square root of variance
-- **Masking**: Only uses valid (water) pixels for statistics
 
 #### 3. **Adaptive Thresholding**
 ```python
@@ -264,17 +157,10 @@ threshold = mean + k * std
 detection = (img > threshold) & valid_mask
 ```
 
-**Threshold Logic:**
-- **Adaptive**: Varies with local background conditions
-- **Statistical**: Based on local mean and standard deviation
-- **Tunable**: `k` parameter controls sensitivity
-- **Masked**: Only detects in valid (water) regions
-
 #### 4. **Post-Processing & Filtering**
 
 **Morphological Cleanup:**
 ```python
-# Remove noise artifacts
 detection = opening(detection, footprint_rectangle((5, 5)))
 detection = remove_small_objects(detection, min_size=25)
 ```
@@ -303,110 +189,6 @@ score = (img - mean) / std
 - **Positive**: Pixel brighter than local background
 - **Higher values**: More confident detections
 - **Typical range**: 0-10 for ships, >10 for very bright targets
-- **NaN**: Invalid regions (land, insufficient statistics)
-
-### Algorithm Advantages
-
-1. **Adaptive**: Automatically adjusts to varying background conditions
-2. **Robust**: Handles different water types (calm, rough, turbid)
-3. **Efficient**: Uses convolution for fast computation
-4. **Configurable**: Tunable parameters for different scenarios
-5. **Masked**: Only processes valid water regions
-6. **Statistical**: Based on sound statistical principles
-
-## 🔄 Complete Data Flow
-
-### Processing Pipeline Visualization
-
-```
-Sentinel-2 SAFE Data
-         │
-         ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Data Discovery                          │
-│  • Scan GRANULE directories                               │
-│  • Find band files (B02, B03, B04, B08, SCL)             │
-│  • Validate file existence and naming                    │
-└─────────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────────────────┐
-│                Resolution Standardization                  │
-│  • Use B04 (Red) as 10m reference                         │
-│  • Resample SCL (20m → 10m) using bilinear interpolation  │
-│  • Ensure all bands have identical dimensions             │
-└─────────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────────────────┐
-│                  AOI Clipping                              │
-│  • Apply GeoJSON polygon clipping                         │
-│  • Reproject coordinates to raster CRS                    │
-│  • Crop to exact AOI boundaries                           │
-└─────────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────────────────┐
-│                Data Validation                             │
-│  • Check shape consistency across all bands               │
-│  • Validate data integrity and completeness               │
-│  • Generate error messages for debugging                  │
-└─────────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────────────────┐
-│              Ship Detection Inputs                         │
-│  • Create intensity image (NIR band)                      │
-│  • Generate water mask (SCL classes 6,7)                 │
-│  • Set CFAR parameters (bg_radius, guard_radius, k)       │
-└─────────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────────────────┐
-│                CFAR Detection                              │
-│  • Build ring kernel (background + guard regions)         │
-│  • Compute local statistics (mean, std)                   │
-│  • Apply adaptive thresholding                            │
-│  • Generate detection mask and confidence scores          │
-└─────────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────────────────┐
-│              Post-Processing & Filtering                   │
-│  • Morphological cleanup (opening, small object removal)  │
-│  • Ship-like filtering (size, aspect ratio, solidity)     │
-│  • Extract ship properties and statistics                 │
-└─────────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────────────────┐
-│                Results & Visualization                     │
-│  • Generate 6-panel visualization                         │
-│  • Create ship summary report                             │
-│  • Export detection results and metadata                  │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Key Data Transformations
-
-| Stage | Input | Output | Key Operations |
-|-------|-------|--------|----------------|
-| **Discovery** | SAFE directory | Band file paths | File scanning, validation |
-| **Resampling** | Multi-resolution bands | 10m resolution arrays | Bilinear interpolation |
-| **Clipping** | Full-resolution arrays | AOI-cropped arrays | Geospatial clipping |
-| **Validation** | Processed arrays | Validated arrays | Shape checking, integrity |
-| **Intensity** | Multi-band arrays | Single intensity array | NIR selection, normalization |
-| **Masking** | SCL array | Boolean water mask | Class filtering, dilation |
-| **CFAR** | Intensity + mask | Detection arrays | Statistical thresholding |
-| **Filtering** | Raw detections | Ship objects | Morphological + shape filtering |
-| **Results** | Ship objects | Reports + visualizations | Analysis, visualization |
-
-### Components
-
-1. **`masked_cfar.py`** - Core CFAR detection algorithm
-2. **`ship_detector.py`** - Complete ship detection pipeline
-3. **`icebreaker/utils/load.py`** - Sentinel-2 data preprocessing
-4. **`icebreaker/config/settings.yaml`** - Configuration file
 
 ## 🚀 Installation
 
@@ -417,23 +199,18 @@ Sentinel-2 SAFE Data
 
 ### Setup
 
-1. **Clone and navigate to the project:**
-   ```bash
-   cd /path/to/dmz-hackathon
-   ```
-
-2. **Create virtual environment:**
+1. **Create virtual environment:**
    ```bash
    python3 -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
-3. **Install dependencies:**
+2. **Install dependencies:**
    ```bash
    pip install -r requirements.txt
    ```
 
-4. **Verify installation:**
+3. **Verify installation:**
    ```bash
    python test_ship_detection.py
    ```
@@ -519,49 +296,6 @@ AOI:                        # Area of Interest (GeoJSON format)
 | **Size** | 25-2000 pixels | Realistic ship dimensions |
 | **Aspect Ratio** | ≥ 1.2 | Ships are elongated |
 | **Solidity** | ≥ 0.6 | Ships have solid shapes |
-
-## 🔬 Algorithm Details
-
-### CFAR (Constant False Alarm Rate) Detection
-
-The CFAR algorithm works by:
-
-1. **Ring Kernel Construction**: Creates a donut-shaped window around each pixel
-   - Outer ring: Background region for statistics
-   - Inner ring: Guard region (excluded from background)
-   - Center: Test pixel
-
-2. **Local Statistics**: Computes mean and standard deviation from background ring
-   - Only uses valid (water) pixels
-   - Requires minimum number of valid pixels
-
-3. **Threshold Detection**: Detects pixels that exceed:
-   ```
-   threshold = mean + k × std
-   ```
-
-4. **Post-processing**: 
-   - Morphological opening to remove noise
-   - Small object removal
-   - Ship-like filtering
-
-### Intensity Image Selection
-
-The pipeline uses the **NIR band (B08)** for ship detection because:
-- Ships appear bright in NIR due to metal surfaces
-- Good contrast against water
-- Less affected by atmospheric conditions
-
-Alternative methods available:
-- **NDVI-like index**: `(NIR - Red) / (NIR + Red)`
-- **RGB composite**: `(Red + Green + Blue) / 3`
-
-### Water Mask Creation
-
-Uses the Scene Classification Layer (SCL) to identify water pixels:
-- **Class 6**: Water
-- **Class 7**: Water vapor
-- **Dilation**: Includes near-shore areas to catch ships partially on land
 
 ## 📊 Output
 
