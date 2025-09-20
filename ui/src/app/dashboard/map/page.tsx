@@ -17,8 +17,8 @@ const ArcticMap = dynamic(() => import("@/components/ArcticMap"), {
 export default function MapPage() {
   return (
     <div className="h-full flex flex-col">
-      <div className="p-6 bg-white border-b border-gray-200">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+      <div className="p-4 bg-white border-b border-gray-200">
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">
           Arctic Scout Map
         </h1>
         <p className="text-gray-600">
