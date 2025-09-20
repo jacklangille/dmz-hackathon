@@ -173,6 +173,7 @@ class ShipDetectorRX:
         """
         import matplotlib.pyplot as plt
         from matplotlib.colors import ListedColormap
+        from matplotlib.patches import Patch
         
         ship_mask = self.create_ship_mask()
         
@@ -181,13 +182,15 @@ class ShipDetectorRX:
         cmap = ListedColormap(colors)
         
         plt.figure(figsize=(10, 10))
-        im = plt.imshow(ship_mask, cmap=cmap, vmin=0, vmax=1)
+        plt.imshow(ship_mask, cmap=cmap, vmin=0, vmax=1)
         plt.title(f"Ship Detection Mask ({ship_mask.sum()} pixels)")
         
-        # Create discrete colorbar
-        cbar = plt.colorbar(im, ticks=[0, 1])
-        cbar.set_ticklabels(['Background', 'Ship'])
-        cbar.set_label('Detection Result')
+        # Create legend with labeled patches
+        legend_elements = [
+            Patch(facecolor='white', edgecolor='black', label='Background'),
+            Patch(facecolor='red', label='Ship')
+        ]
+        plt.legend(handles=legend_elements, loc='upper right', bbox_to_anchor=(1.0, 1.0))
         
         plt.axis('off')
         plt.tight_layout()
