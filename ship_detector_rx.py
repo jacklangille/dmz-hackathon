@@ -172,13 +172,23 @@ class ShipDetectorRX:
             filepath: Path where to save the ship mask image
         """
         import matplotlib.pyplot as plt
+        from matplotlib.colors import ListedColormap
         
         ship_mask = self.create_ship_mask()
         
+        # Create discrete colormap for binary values
+        colors = ['white', 'red']  # 0 = white (background), 1 = red (ship)
+        cmap = ListedColormap(colors)
+        
         plt.figure(figsize=(10, 10))
-        plt.imshow(ship_mask, cmap='Reds')
+        im = plt.imshow(ship_mask, cmap=cmap, vmin=0, vmax=1)
         plt.title(f"Ship Detection Mask ({ship_mask.sum()} pixels)")
-        plt.colorbar(label='Ship Detection (1=ship, 0=background)')
+        
+        # Create discrete colorbar
+        cbar = plt.colorbar(im, ticks=[0, 1])
+        cbar.set_ticklabels(['Background', 'Ship'])
+        cbar.set_label('Detection Result')
+        
         plt.axis('off')
         plt.tight_layout()
         plt.savefig(filepath, dpi=150, bbox_inches='tight')
