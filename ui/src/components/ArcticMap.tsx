@@ -96,7 +96,15 @@ export default function ArcticMap() {
           zoom: 3,
           minZoom: 1,
           maxZoom: 18,
+          zoomControl: false, // Disable default zoom control to reposition it
         });
+
+        // Add zoom control to top right
+        L.control
+          .zoom({
+            position: "topright",
+          })
+          .addTo(map);
 
         // Add CartoDB Voyager tiles (more detailed with water body labels)
         L.tileLayer(
