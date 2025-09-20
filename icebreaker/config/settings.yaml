@@ -1,0 +1,9 @@
+S2_DATA_ROOT: /Users/jwl/Programming/dmz-hackathon/s2_data.SAFE
+AOI:
+  type: Polygon
+  coordinates:
+    - - [-53.209534, 69.252743]
+      - [-53.732758, 69.252743]
+      - [-53.732758, 69.040093]
+      - [-53.209534, 69.040093]
+      - [-53.209534, 69.252743]
