@@ -1,172 +1,164 @@
-"use client";
-
-import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Satellite,
+  Circle,
+  Leaf,
+  Waves,
+  MapPin,
+  Thermometer,
+} from "lucide-react";
 
 export default function DiskoBayPage() {
-  const [activeTab, setActiveTab] = useState("satellite");
-
-  const tabs = ["satellite", "Red", "Green", "Blue", "Coastal", "Infrared"];
-
-  const tabData = {
-    satellite: {
-      icon: "🛰️",
+  const satelliteBands = [
+    {
+      icon: Satellite,
       title: "Satellite Imagery",
       description: "High-resolution satellite imagery",
-      threatAnalysis:
-        "Satellite imagery reveals unusual vessel activity in the Disko Bay region. The high-resolution data shows multiple unidentified objects that don't match typical fishing or commercial vessel patterns. Thermal signatures suggest these vessels may be operating with reduced visibility protocols.",
+      analysis:
+        "Satellite imagery reveals unusual vessel activity in the Disko Bay region. The high-resolution data shows multiple unidentified objects that don't match typical fishing or commercial vessel patterns.",
     },
-    Red: {
-      icon: "🔴",
+    {
+      icon: Circle,
       title: "Red Band Analysis",
       description: "Red band spectral analysis",
-      threatAnalysis:
-        "Red band spectral analysis indicates significant chlorophyll concentration anomalies. The data suggests potential underwater activity or environmental changes that could mask vessel detection. This spectral signature is consistent with recent intelligence reports of submarine operations in Arctic waters.",
+      analysis:
+        "Red band spectral analysis indicates significant chlorophyll concentration anomalies. The data suggests potential underwater activity or environmental changes that could mask vessel detection.",
     },
-    Green: {
-      icon: "🟢",
+    {
+      icon: Leaf,
       title: "Vegetation Index",
       description: "Green band vegetation index",
-      threatAnalysis:
-        "Vegetation index analysis shows unexpected changes in coastal vegetation patterns. The data reveals areas where natural growth has been disturbed, potentially indicating ground-based activity or infrastructure development. These patterns are consistent with temporary encampment or equipment deployment.",
+      analysis:
+        "Vegetation index analysis shows unexpected changes in coastal vegetation patterns. The data reveals areas where natural growth has been disturbed, potentially indicating ground-based activity.",
     },
-    Blue: {
-      icon: "🔵",
+    {
+      icon: Waves,
       title: "Water Analysis",
       description: "Blue band water analysis",
-      threatAnalysis:
-        "Blue band water analysis reveals unusual turbidity patterns and water temperature variations. The data suggests underwater activity or vessel wake patterns that don't align with normal maritime traffic. Water chemistry analysis indicates potential presence of non-native substances or equipment.",
+      analysis:
+        "Blue band water analysis reveals unusual turbidity patterns and water temperature variations. The data suggests underwater activity or vessel wake patterns that don't align with normal maritime traffic.",
     },
-    Coastal: {
-      icon: "🌊",
+    {
+      icon: MapPin,
       title: "Coastal Monitoring",
       description: "Coastal monitoring data",
-      threatAnalysis:
-        "Coastal monitoring data shows irregular shoreline activity and potential landing sites. The analysis reveals disturbed sediment patterns and temporary structures that suggest recent human activity. These findings correlate with reports of unauthorized access to sensitive Arctic monitoring stations.",
+      analysis:
+        "Coastal monitoring data shows irregular shoreline activity and potential landing sites. The analysis reveals disturbed sediment patterns and temporary structures that suggest recent human activity.",
     },
-    Infrared: {
-      icon: "🌡️",
+    {
+      icon: Thermometer,
       title: "Thermal Analysis",
       description: "Thermal infrared imagery",
-      threatAnalysis:
-        "Thermal infrared analysis reveals multiple heat signatures that don't correspond to known infrastructure or natural phenomena. The thermal patterns suggest active equipment or vehicles operating in the area. Temperature gradients indicate potential electronic equipment or engine activity consistent with surveillance or reconnaissance operations.",
+      analysis:
+        "Thermal infrared analysis reveals multiple heat signatures that don't correspond to known infrastructure or natural phenomena. The thermal patterns suggest active equipment or vehicles operating in the area.",
     },
-  };
+  ];
 
   return (
-    <div className="bg-gray-50">
-      <div className="p-6 bg-white border-b border-gray-200">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Disko Bay</h1>
-        <p className="text-gray-600">
+    <div className="min-h-screen bg-gray-50 p-6">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold text-red-600 mb-2">
+          Threat Detected - Disko Bay
+        </h1>
+        <p className="text-lg text-gray-700">
           A potential security threat has been identified in the Disko Bay
           region. Immediate analysis and monitoring required to assess the
           situation and determine appropriate response measures.
         </p>
       </div>
 
-      <div className="p-6">
-        {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          {/* Stats and Text Block */}
-          <div className="space-y-6">
-            {/* Location Stats */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Location Details</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="font-medium text-muted-foreground">
-                      Longitude:
-                    </span>
-                    <span className="text-foreground">-51.1°</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="font-medium text-muted-foreground">
-                      Latitude:
-                    </span>
-                    <span className="text-foreground">69.2°</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="font-medium text-muted-foreground">
-                      Date:
-                    </span>
-                    <span className="text-foreground">2024-01-15</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="font-medium text-muted-foreground">
-                      Time:
-                    </span>
-                    <span className="text-foreground">14:32:47 UTC</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Text Block */}
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  Threat Analysis -{" "}
-                  {tabData[activeTab as keyof typeof tabData].title}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground leading-relaxed">
-                  {tabData[activeTab as keyof typeof tabData].threatAnalysis}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Imagery Display */}
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                {tabData[activeTab as keyof typeof tabData].title}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="w-full h-96 bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-muted-foreground/25">
-                <div className="text-center">
-                  <div className="text-6xl text-muted-foreground mb-4">
-                    {tabData[activeTab as keyof typeof tabData].icon}
-                  </div>
-                  <p className="text-muted-foreground font-medium">
-                    {tabData[activeTab as keyof typeof tabData].title}
-                  </p>
-                  <p className="text-sm text-muted-foreground/70 mt-2">
-                    {tabData[activeTab as keyof typeof tabData].description}
-                  </p>
-                </div>
+      {/* Main Content */}
+      {/* Location Details and Threat Level */}
+      <div className="space-y-6 grid grid-cols-2 gap-8 mb-8">
+        {/* Location Stats */}
+        <Card className="h-full">
+          <CardHeader>
+            <CardTitle>Location Details</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <span className="font-medium text-muted-foreground">
+                  Longitude:
+                </span>
+                <span className="text-foreground">-51.1°</span>
               </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Custom Tabs at Bottom */}
-        <Card className="mt-8">
-          <CardContent className="p-6">
-            <div className="border-b border-gray-200">
-              <nav className="flex space-x-8" aria-label="Tabs">
-                {tabs.map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`py-4 px-1 border-b-2 font-medium text-sm capitalize transition-colors ${
-                      activeTab === tab
-                        ? "border-red-500 text-red-600"
-                        : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground"
-                    }`}
-                  >
-                    {tab}
-                  </button>
-                ))}
-              </nav>
+              <div className="flex justify-between">
+                <span className="font-medium text-muted-foreground">
+                  Latitude:
+                </span>
+                <span className="text-foreground">69.2°</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-medium text-muted-foreground">Date:</span>
+                <span className="text-foreground">2024-01-15</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-medium text-muted-foreground">Time:</span>
+                <span className="text-foreground">14:32:47 UTC</span>
+              </div>
             </div>
           </CardContent>
         </Card>
+
+        {/* Threat Level Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <span className="w-3 h-3 bg-red-500 rounded-full"></span>
+              Threat Level: HIGH
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground leading-relaxed">
+              <strong>HIGH Threat Level</strong> indicates immediate security
+              concerns requiring urgent attention. This classification is
+              assigned when multiple intelligence sources confirm suspicious
+              activity, unusual vessel patterns, or potential unauthorized
+              operations in sensitive Arctic regions. Immediate response
+              protocols are activated, and continuous monitoring is required
+              until the threat is neutralized or confirmed as non-hostile.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Satellite Imagery Grid */}
+      <div className="space-y-6">
+        <h2 className="text-2xl font-bold text-gray-900 mb-4">
+          Satellite Imagery Analysis
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {satelliteBands.map((band, index) => (
+            <Card key={index} className="hover:shadow-lg transition-shadow">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <band.icon className="w-6 h-6 text-black" />
+                  {band.title}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {/* Image Placeholder */}
+                <div className="w-full h-32 bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-muted-foreground/25 mb-4">
+                  <div className="text-center">
+                    <band.icon className="w-8 h-8 text-muted-foreground mb-2" />
+                    <p className="text-xs text-muted-foreground">
+                      {band.title} Image
+                    </p>
+                  </div>
+                </div>
+
+                <p className="text-sm text-muted-foreground mb-3">
+                  {band.description}
+                </p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {band.analysis}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     </div>
   );
