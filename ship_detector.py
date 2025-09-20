@@ -117,13 +117,34 @@ class ShipDetector:
         
         # Process bands to common resolution
         print("🔄 Processing bands to common resolution...")
-        self.processed_bands = self.preprocessor.process_bands(
-            band_names=bands_to_process,
-            reference_band="B04",  # 10m reference
-            aoi_geometry=self.config["AOI"]
-        )
+        self.processed_bands = {}
+        reference_path = bands["B04"]  # Use B04 as reference (10m)
         
-        print(f"📊 Band shapes: {[(k, v.shape) for k, v in self.processed_bands.items()]}")
+        for band_name in bands_to_process:
+            if band_name not in bands:
+                print(f"⚠️  Band {band_name} not found, skipping")
+                continue
+                
+            try:
+                # First resample to reference resolution
+                resampled_array, _ = self.preprocessor.resample_band_to_reference(
+                    bands[band_name], reference_path
+                )
+                
+                # Then clip to AOI
+                clipped_array, _, _ = self.preprocessor.clip_to_area_of_interest(
+                    bands[band_name], self.config["AOI"]
+                )
+                
+                # Use the resampled array (which should match the reference resolution)
+                self.processed_bands[band_name] = resampled_array
+                print(f"✅ Processed {band_name}: {resampled_array.shape}")
+                
+            except Exception as e:
+                print(f"❌ Error processing band {band_name}: {e}")
+                continue
+        
+        print(f"📊 Final band shapes: {[(k, v.shape) for k, v in self.processed_bands.items()]}")
         return self.processed_bands
     
     def detect_ships(self, 
@@ -146,6 +167,15 @@ class ShipDetector:
         """
         print("🚢 Detecting ships with CFAR...")
         
+        # Validate that all bands have the same shape
+        band_shapes = {name: band.shape for name, band in self.processed_bands.items()}
+        unique_shapes = set(band_shapes.values())
+        if len(unique_shapes) > 1:
+            print(f"❌ Error: Bands have different shapes: {band_shapes}")
+            raise ValueError(f"All bands must have the same shape. Found: {band_shapes}")
+        
+        print(f"✅ All bands have consistent shape: {list(unique_shapes)[0]}")
+        
         # Create water mask
         water_mask = self.create_water_mask(self.processed_bands["SCL"])
         print(f"🌊 Water pixels: {water_mask.sum()} / {water_mask.size} ({water_mask.mean()*100:.1f}%)")
@@ -153,6 +183,11 @@ class ShipDetector:
         # Create intensity image
         intensity_img = self.create_ship_intensity_image(self.processed_bands)
         print(f"📈 Intensity range: {intensity_img.min():.2f} - {intensity_img.max():.2f}")
+        
+        # Validate that intensity image and water mask have the same shape
+        if intensity_img.shape != water_mask.shape:
+            print(f"❌ Error: Intensity image shape {intensity_img.shape} != water mask shape {water_mask.shape}")
+            raise ValueError("Intensity image and water mask must have the same shape")
         
         # Run CFAR detection
         self.detections, self.scores = masked_cfar(
