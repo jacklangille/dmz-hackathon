@@ -505,7 +505,7 @@ class Sentinel2Preprocessor:
 
 
 def main():
-    config_path = "/Users/jwl/Programming/dmz-hackathon/icebreaker/config/settings.yaml"
+    config_path = "icebreaker/config/settings.yaml"
 
     with open(config_path, "r") as file:
         config = yaml.safe_load(file)
