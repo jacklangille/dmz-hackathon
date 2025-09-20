@@ -6,7 +6,7 @@ A complete pipeline for detecting ships in satellite imagery using the Constant 
 
 - [Overview](#overview)
 - [Architecture](#architecture)
-- [Data Processing](#data-processing)
+- [Data Processing Pipeline (load.py)](#data-processing-pipeline-loadpy)
 - [Ship Detection](#ship-detection)
 - [Fast CFAR Implementation](#fast-cfar-implementation)
 - [Installation](#installation)
@@ -50,9 +50,42 @@ This project implements a ship detection system that:
                        └──────────────────┘    └─────────────────┘
 ```
 
-## 📊 Data Processing
+## 📊 Data Processing Pipeline (load.py)
 
-### Input Data Structure
+The `icebreaker/utils/load.py` module provides the `Sentinel2Preprocessor` class that handles all Sentinel-2 data preprocessing before ship detection. This is a comprehensive, production-ready preprocessing pipeline.
+
+### 🏗️ Sentinel2Preprocessor Class
+
+#### **Core Functionality**
+- **Band Discovery**: Automatically finds and validates Sentinel-2 band files
+- **Resolution Standardization**: Resamples all bands to common resolution
+- **AOI Clipping**: Clips data to specified Area of Interest
+- **Data Validation**: Ensures consistent dimensions and data types
+- **Visualization**: Provides processing step visualization
+
+#### **Supported Bands**
+```python
+SUPPORTED_BANDS = {
+    "B01": ["*B01_20m.jp2", "*B01_60m.jp2"],  # Coastal aerosol
+    "B02": ["*B02_10m.jp2", "*B02_20m.jp2", "*B02_60m.jp2"],  # Blue
+    "B03": ["*B03_10m.jp2", "*B03_20m.jp2", "*B03_60m.jp2"],  # Green
+    "B04": ["*B04_10m.jp2", "*B04_20m.jp2", "*B04_60m.jp2"],  # Red
+    "B05": ["*B05_20m.jp2", "*B05_60m.jp2"],  # Red Edge 1
+    "B06": ["*B06_20m.jp2", "*B06_60m.jp2"],  # Red Edge 2
+    "B07": ["*B07_20m.jp2", "*B07_60m.jp2"],  # Red Edge 3
+    "B08": ["*B08_10m.jp2"],  # NIR
+    "B8A": ["*B8A_20m.jp2", "*B8A_60m.jp2"],  # NIR narrow
+    "B09": ["*B09_60m.jp2"],  # Water vapour
+    "B11": ["*B11_20m.jp2", "*B11_60m.jp2"],  # SWIR 1
+    "B12": ["*B12_20m.jp2", "*B12_60m.jp2"],  # SWIR 2
+    "SCL": ["*SCL_20m.jp2", "*SCL_60m.jp2"],  # Scene Classification
+    "AOT": ["*AOT_10m.jp2", "*AOT_20m.jp2", "*AOT_60m.jp2"],  # Aerosol Optical Thickness
+    "WVP": ["*WVP_10m.jp2", "*WVP_20m.jp2", "*WVP_60m.jp2"],  # Water Vapour
+    "TCI": ["*TCI_10m.jp2", "*TCI_20m.jp2", "*TCI_60m.jp2"],  # True Color Image
+}
+```
+
+### 📁 Input Data Structure
 
 The pipeline processes **Sentinel-2 Level-2A SAFE format** data:
 
@@ -72,14 +105,77 @@ s2_data.SAFE/
 └── manifest.safe
 ```
 
-### Processing Steps
+### 🔄 Processing Workflow
 
-1. **Band Discovery**: Scans GRANULE directories for band files (B02, B03, B04, B08, SCL)
-2. **Resolution Standardization**: Resamples all bands to 10m resolution using B04 as reference
-3. **AOI Clipping**: Applies GeoJSON polygon clipping to reduce data size
-4. **Data Validation**: Ensures all bands have consistent dimensions
+#### **1. Initialization**
+```python
+from icebreaker.utils.load import Sentinel2Preprocessor
 
-### Output Data Structure
+# Initialize with SAFE directory and optional config
+preprocessor = Sentinel2Preprocessor(
+    safe_dir="s2_data.SAFE",
+    config_path="icebreaker/config/settings.yaml"
+)
+```
+
+#### **2. Band Discovery**
+```python
+# Discover specific bands
+bands = preprocessor.discover_bands(["B02", "B03", "B04", "B08", "SCL"])
+
+# Or discover all supported bands
+all_bands = preprocessor.discover_bands()
+```
+
+**Discovery Process:**
+- Scans GRANULE subdirectories
+- Searches R10m, R20m, R60m resolution directories
+- Matches band files using glob patterns
+- Validates file existence and accessibility
+
+#### **3. Resolution Standardization**
+```python
+# Resample any band to match reference resolution
+resampled_array, metadata = preprocessor.resample_band_to_reference(
+    band_path=bands["SCL"],           # 20m SCL band
+    reference_path=bands["B04"],      # 10m reference
+    resampling_method=Resampling.bilinear
+)
+```
+
+**Resampling Features:**
+- **Bilinear interpolation** for smooth resampling
+- **CRS preservation** maintains coordinate reference system
+- **Metadata consistency** updates transform and dimensions
+- **Memory efficient** processes bands individually
+
+#### **4. AOI Clipping**
+```python
+# Clip band to Area of Interest
+clipped_array, transform, metadata = preprocessor.clip_to_area_of_interest(
+    band_path=bands["B04"],
+    aoi_geometry=config["AOI"]  # GeoJSON polygon
+)
+```
+
+**Clipping Features:**
+- **GeoJSON support** handles various geometry formats
+- **CRS transformation** automatically reprojects AOI to raster CRS
+- **Crop optimization** reduces data size by ~90%
+- **Metadata updates** maintains spatial reference information
+
+#### **5. Batch Processing**
+```python
+# Process multiple bands at once
+processed_bands = preprocessor.process_bands(
+    band_names=["B02", "B03", "B04", "B08", "SCL"],
+    reference_band="B04",           # Use B04 as 10m reference
+    aoi_geometry=config["AOI"],     # Optional AOI clipping
+    output_resolution="10m"
+)
+```
+
+### 📊 Output Data Structure
 
 ```python
 processed_bands = {
@@ -93,34 +189,93 @@ processed_bands = {
 
 **Key Properties:**
 - **Shape**: All bands have identical dimensions (e.g., 2488×2213)
-- **Resolution**: 10m per pixel
+- **Resolution**: 10m per pixel (standardized)
 - **Data Type**: float32 for numerical processing
+- **CRS**: Consistent coordinate reference system
+- **Extent**: Clipped to AOI for efficiency
+
+### 🛠️ Advanced Features
+
+#### **Band Information**
+```python
+# Get detailed band metadata
+band_info = preprocessor.get_band_info()
+for band, info in band_info.items():
+    print(f"{band}: {info['shape']} - {info['crs']}")
+```
+
+#### **Processing Visualization**
+```python
+# Visualize processing steps
+preprocessor.visualize_processing_steps(
+    original_path=bands["B08"],
+    resampled_array=resampled_array,
+    clipped_array=clipped_array,
+    figsize=(15, 5),
+    cmap="gray"
+)
+```
+
+#### **Error Handling**
+- **File validation** checks SAFE directory structure
+- **Band validation** ensures required bands exist
+- **Geometry validation** verifies AOI format
+- **Comprehensive logging** tracks processing steps
+
+### 🔧 Configuration Integration
+
+The preprocessor integrates with the YAML configuration:
+
+```yaml
+# icebreaker/config/settings.yaml
+S2_DATA_ROOT: s2_data.SAFE  # Path to SAFE directory
+AOI:                        # Area of Interest
+  type: Polygon
+  coordinates:
+    - - [-53.209534, 69.252743]
+      - [-53.732758, 69.252743]
+      - [-53.732758, 69.040093]
+      - [-53.209534, 69.040093]
+      - [-53.209534, 69.252743]
+```
+
+### 🚀 Performance Optimizations
+
+- **Lazy loading** processes bands only when needed
+- **Memory efficient** handles large images without loading all at once
+- **Parallel processing** ready for batch operations
+- **Caching** stores processed results for reuse
 
 ## 🎯 Ship Detection
 
 ### Inputs to `ship_detector.py`
 
-#### 1. **Intensity Image**
+#### 1. **Ship Intensity Image**
 ```python
-# NIR band used as primary detection input
-intensity_img = bands["B08"].astype(np.float32)
+# NDVI-like ratio for ship detection
+nir = bands["B08"].astype(np.float32)
+red = bands["B04"].astype(np.float32)
+intensity_img = (nir - red) / (nir + red + 1e-6)
 ```
 
-**Why NIR (B08)?**
-- Ships appear bright in NIR due to metal surfaces
-- High contrast against water background
-- Less affected by atmospheric scattering
+**Why NDVI-like Ratio?**
+- **High contrast**: Ships appear bright against water background
+- **Atmospheric correction**: Ratio reduces atmospheric effects
+- **Water suppression**: Water has low NIR/Red ratio, ships have high ratio
+- **Robust detection**: Less sensitive to illumination variations
 
 #### 2. **Water Mask**
 ```python
 # Derived from Scene Classification Layer
-water_mask = np.isin(scl_band, [6, 7])  # Classes 6=water, 7=water_vapor
+water_mask = np.isin(scl_band, [6, 7, 10, 11])  # Water classes
 water_mask = binary_dilation(water_mask, disk(2))  # Include near-shore areas
 ```
 
 **SCL Class Definitions:**
 - **Class 6**: Water bodies
-- **Class 7**: Water vapor/clouds over water
+- **Class 7**: Water vapor/clouds over water  
+- **Class 10**: Water (alternative classification)
+- **Class 11**: Water (alternative classification)
 - **Dilation**: Includes 2-pixel buffer around water for ships near shore
 
 #### 3. **CFAR Parameters**
@@ -474,14 +629,22 @@ AOI:                        # Area of Interest (GeoJSON format)
 
 ### Visualization
 
-The pipeline generates a 6-panel visualization:
+The pipeline generates a comprehensive 9-panel visualization (3×3 grid):
 
-1. **RGB Composite** - True color image
-2. **NIR Band** - Intensity image used for detection
-3. **Water Mask** - Valid detection regions
-4. **CFAR Scores** - Detection confidence scores
-5. **Raw Detections** - Binary detection mask
-6. **Ships Overlay** - Detected ships marked on RGB image
+#### **Row 1: Input Data**
+1. **RGB Composite** - True color image (B04, B03, B02)
+2. **NIR Band** - Near-infrared band (B08)
+3. **Water Mask** - Valid detection regions from SCL
+
+#### **Row 2: Processing**
+4. **Ship Intensity Image** - NDVI-like ratio used for CFAR detection
+5. **CFAR Scores** - Detection confidence scores (Z-scores)
+6. **Raw Detections** - Binary detection mask from CFAR
+
+#### **Row 3: Final Results**
+7. **Ships Detected** - RGB overlay with detected ships marked
+8. **Intensity + Detections** - Intensity image with detection highlights
+9. **Water + Detections** - Water mask with detection overlays
 
 ### Ship Summary Report
 
@@ -523,19 +686,24 @@ def _is_ship_like(self, region):
 
 ```python
 def create_ship_intensity_image(self, bands):
-    # Method 1: NIR (default)
-    intensity = bands["B08"].astype(np.float32)
-    
-    # Method 2: NDVI-like
+    # Method 1: NDVI-like ratio (current default)
     nir = bands["B08"].astype(np.float32)
     red = bands["B04"].astype(np.float32)
     intensity = (nir - red) / (nir + red + 1e-6)
+    
+    # Method 2: NIR only
+    intensity = bands["B08"].astype(np.float32)
     
     # Method 3: RGB composite
     red = bands["B04"].astype(np.float32)
     green = bands["B03"].astype(np.float32)
     blue = bands["B02"].astype(np.float32)
     intensity = (red + green + blue) / 3.0
+    
+    # Method 4: Enhanced NDVI with SWIR
+    nir = bands["B08"].astype(np.float32)
+    swir = bands["B11"].astype(np.float32)  # If available
+    intensity = (nir - swir) / (nir + swir + 1e-6)
     
     return intensity
 ```
