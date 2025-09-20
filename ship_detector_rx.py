@@ -453,14 +453,18 @@ class ShipDetectorRX:
             print(f"  Width: {ship['minor_axis_length']:.1f} pixels")
     
     def run_complete_pipeline(self, 
-                             config_path: str,
+                             multispectral_stack: np.ndarray,
+                             water_mask: np.ndarray,
+                             processed_bands: Dict[str, np.ndarray],
                              detection_mode: str = "fast",
                              threshold_percentile: float = 99.5) -> None:
         """
         Run the complete RX ship detection pipeline.
         
         Args:
-            config_path: Path to configuration file
+            multispectral_stack: Preprocessed multispectral data stack
+            water_mask: Water mask for filtering detections
+            processed_bands: Dictionary of processed band data
             detection_mode: RX detection mode ("fast", "adaptive", "pixel_wise")
             threshold_percentile: Detection threshold percentile
         """
@@ -468,26 +472,7 @@ class ShipDetectorRX:
         logger.info("="*50)
         
         try:
-            # Load configuration
-            config = load_config(config_path)
-            
-            # Step 1: Load and preprocess data
-            processed_bands = load_and_preprocess_data(config, SENTINEL2_MULTISPECTRAL_BANDS)
-            
-            # Step 2: Create multispectral stack
-            multispectral_stack = create_multispectral_stack_from_bands(
-                processed_bands, 
-                SENTINEL2_MULTISPECTRAL_BANDS
-            )
-            
-            # Step 3: Create water mask
-            if "SCL" in processed_bands:
-                water_mask = create_water_mask_from_scl(processed_bands["SCL"])
-            else:
-                # Fallback: assume all pixels are valid
-                water_mask = create_fallback_water_mask(multispectral_stack.shape[:2])
-            
-            # Step 4: Detect ships using RX
+            # Step 1: Detect ships using RX
             self.detect_ships(
                 multispectral_stack=multispectral_stack,
                 water_mask=water_mask,
@@ -495,14 +480,14 @@ class ShipDetectorRX:
                 threshold_percentile=threshold_percentile
             )
             
-            # Step 5: Visualize results
+            # Step 2: Visualize results
             self.visualize_results(
                 processed_bands=processed_bands,
                 multispectral_stack=multispectral_stack,
                 water_mask=water_mask
             )
             
-            # Step 6: Print summary
+            # Step 3: Print summary
             self.print_ship_summary()
             
             logger.info("✅ RX ship detection pipeline completed successfully!")
@@ -513,11 +498,52 @@ class ShipDetectorRX:
             traceback.print_exc()
 
 
+def prepare_detection_data(config_path: str = "icebreaker/config/settings.yaml") -> Tuple[np.ndarray, np.ndarray, Dict[str, np.ndarray]]:
+    """
+    Prepare data for ship detection pipeline.
+    
+    Args:
+        config_path: Path to configuration file
+        
+    Returns:
+        Tuple of (multispectral_stack, water_mask, processed_bands)
+    """
+    logger.info("📊 Preparing detection data...")
+    
+    # Load configuration
+    config = load_config(config_path)
+    
+    # Step 1: Load and preprocess data
+    processed_bands = load_and_preprocess_data(config, SENTINEL2_MULTISPECTRAL_BANDS)
+    
+    # Step 2: Create multispectral stack
+    multispectral_stack = create_multispectral_stack_from_bands(
+        processed_bands, 
+        SENTINEL2_MULTISPECTRAL_BANDS
+    )
+    
+    # Step 3: Create water mask
+    if "SCL" in processed_bands:
+        water_mask = create_water_mask_from_scl(processed_bands["SCL"])
+    else:
+        # Fallback: assume all pixels are valid
+        water_mask = create_fallback_water_mask(multispectral_stack.shape[:2])
+    
+    logger.info("✅ Data preparation completed")
+    return multispectral_stack, water_mask, processed_bands
+
+
 def main():
     """Main function to run RX ship detection."""
+    # Prepare data
+    multispectral_stack, water_mask, processed_bands = prepare_detection_data()
+    
+    # Run detection pipeline
     detector = ShipDetectorRX()
     detector.run_complete_pipeline(
-        config_path="icebreaker/config/settings.yaml",
+        multispectral_stack=multispectral_stack,
+        water_mask=water_mask,
+        processed_bands=processed_bands,
         detection_mode="fast", 
         threshold_percentile=99.5
     )
