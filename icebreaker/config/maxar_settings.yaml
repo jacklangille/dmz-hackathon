@@ -1,0 +1,22 @@
+# Maxar dataset configuration
+MAXAR_DATA_ROOT: maxar_data  # Path to Maxar dataset directory
+AOI:
+  type: Polygon
+  coordinates:
+    - - [-53.209534, 69.252743]
+      - [-53.732758, 69.252743]
+      - [-53.732758, 69.040093]
+      - [-53.209534, 69.040093]
+      - [-53.209534, 69.252743]
+
+# Maxar band file patterns (adjust based on your actual file naming convention)
+BAND_PATTERNS:
+  coastal_blue: "*coastal_blue*"
+  blue: "*blue*"
+  green: "*green*"
+  yellow: "*yellow*"
+  red: "*red*"
+  red_edge: "*red_edge*"
+  red_edge_2: "*red_edge_2*"
+  nir_1: "*nir_1*"
+  nir_2: "*nir_2*"

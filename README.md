@@ -1,6 +1,6 @@
 # 🚢 RX Ship Detection Pipeline using Multispectral Satellite Data
 
-A complete pipeline for detecting ships in multispectral satellite imagery using the RX (Reed-Xiaoli) anomaly detector on preprocessed Sentinel-2 data.
+A complete pipeline for detecting ships in multispectral satellite imagery using the RX (Reed-Xiaoli) anomaly detector. Supports both Sentinel-2 and Maxar datasets.
 
 ## 📋 Table of Contents
 
@@ -19,10 +19,15 @@ A complete pipeline for detecting ships in multispectral satellite imagery using
 
 This project implements a ship detection system that:
 
-1. **Loads and preprocesses** Sentinel-2 multispectral imagery using the `load.py` pipeline
+1. **Loads and preprocesses** multispectral imagery from Sentinel-2 or Maxar datasets
 2. **Applies the RX anomaly detector** to identify statistical outliers (potential ships) in the multispectral data
 3. **Filters detections** based on ship-like characteristics (size, shape, solidity)
 4. **Generates comprehensive results** with visualizations and detailed reports
+
+### Supported Datasets
+
+- **Sentinel-2**: 8-band multispectral data (B01-B08)
+- **Maxar**: 9-band multispectral data (coastal blue, blue, green, yellow, red, red edge, red edge-2, NIR-1, NIR-2)
 
 ### Key Features
 
@@ -264,20 +269,39 @@ shapely>=2.0.0
 ### Basic Usage
 
 ```bash
-# Run the complete pipeline
+# Run with Sentinel-2 dataset (default)
 python ship_detector_rx.py
+
+# Run with Maxar dataset
+python -c "from ship_detector_rx import main; main(dataset_type='maxar')"
+
+# Or use the test script
+python test_maxar.py
 ```
 
 ### Programmatic Usage
 
 ```python
+from ship_detector_rx import main
+from data_processing import prepare_detection_data
+
+# For Sentinel-2 dataset
+multispectral_stack, water_mask, processed_bands = prepare_detection_data(
+    dataset_type="sentinel2"
+)
+
+# For Maxar dataset
+multispectral_stack, water_mask, processed_bands = prepare_detection_data(
+    dataset_type="maxar"
+)
+
+# Run detection
 from ship_detector_rx import ShipDetectorRX
-
-# Initialize detector
-detector = ShipDetectorRX("icebreaker/config/settings.yaml")
-
-# Run complete pipeline
-detector.run_complete_pipeline()
+detector = ShipDetectorRX()
+detector.run_complete_pipeline(
+    multispectral_stack=multispectral_stack,
+    water_mask=water_mask
+)
 
 # Access results
 ships = detector.ships
@@ -302,7 +326,9 @@ detector.detect_ships(
 
 ## ⚙️ Configuration
 
-### Configuration File (`icebreaker/config/settings.yaml`)
+### Configuration Files
+
+#### Sentinel-2 Configuration (`icebreaker/config/settings.yaml`)
 
 ```yaml
 S2_DATA_ROOT: s2_data.SAFE
@@ -314,6 +340,32 @@ AOI:
       - [-53.732758, 69.040093]
       - [-53.209534, 69.040093]
       - [-53.209534, 69.252743]
+```
+
+#### Maxar Configuration (`icebreaker/config/maxar_settings.yaml`)
+
+```yaml
+MAXAR_DATA_ROOT: maxar_data  # Path to Maxar dataset directory
+AOI:
+  type: Polygon
+  coordinates:
+    - - [-53.209534, 69.252743]
+      - [-53.732758, 69.252743]
+      - [-53.732758, 69.040093]
+      - [-53.209534, 69.040093]
+      - [-53.209534, 69.252743]
+
+# Maxar band file patterns (adjust based on your actual file naming convention)
+BAND_PATTERNS:
+  coastal_blue: "*coastal_blue*"
+  blue: "*blue*"
+  green: "*green*"
+  yellow: "*yellow*"
+  red: "*red*"
+  red_edge: "*red_edge*"
+  red_edge_2: "*red_edge_2*"
+  nir_1: "*nir_1*"
+  nir_2: "*nir_2*"
 ```
 
 ### RX Detector Parameters

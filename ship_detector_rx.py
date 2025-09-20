@@ -59,6 +59,11 @@ class ShipDetectorRX:
             
         Returns:
             Tuple of (rx_scores, binary_detections)
+
+            rx_scores is the RX score for each pixel
+            binary_detections is a binary mask of the detected ships.
+            High values are more anomalous (like ships) and low values are more background.
+            The binary mask is a boolean mask of the detected ships.
         """
         # Run RX detection
         if detection_mode == "fast":
@@ -435,10 +440,10 @@ class ShipDetectorRX:
         self.print_ship_summary()
 
 
-def main():
+def main(dataset_type: str = "sentinel2"):
     """Main function to run RX ship detection."""
     # Prepare data
-    multispectral_stack, water_mask = prepare_detection_data()
+    multispectral_stack, water_mask, processed_bands = prepare_detection_data(dataset_type=dataset_type)
     
     # Run detection pipeline
     detector = ShipDetectorRX()

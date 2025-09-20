@@ -31,6 +31,19 @@ SENTINEL2_MULTISPECTRAL_BANDS = [
     "B08",  # NIR (842nm)
 ]
 
+# Maxar multispectral bands configuration
+MAXAR_MULTISPECTRAL_BANDS = [
+    "coastal_blue",    # Coastal Blue
+    "blue",           # Blue
+    "green",          # Green
+    "yellow",         # Yellow
+    "red",            # Red
+    "red_edge",       # Red Edge
+    "red_edge_2",     # Red Edge-2 (Legion Only)
+    "nir_1",          # Near-Infrared-1 (NIR-1)
+    "nir_2",          # NIR-2 (WV-3 Only)
+]
+
 
 def create_multispectral_stack_from_bands(processed_bands: Dict[str, np.ndarray], 
                                         band_order: List[str]) -> np.ndarray:
@@ -110,27 +123,94 @@ def load_and_preprocess_data(config: Dict, multispectral_bands: List[str]) -> Di
     """
     logger.info("Loading and preprocessing multispectral data...")
     
-    # Initialize preprocessor
-    safe_dir = Path(config["S2_DATA_ROOT"])
-    preprocessor = Sentinel2Preprocessor(safe_dir, "icebreaker/config/settings.yaml")
-    
-    # Discover bands
-    bands = preprocessor.discover_bands(multispectral_bands)
-    logger.info(f"Discovered bands: {list(bands.keys())}")
-    
-    # Process bands to common resolution and clip to AOI
-    processed_bands = preprocessor.process_bands(
-        band_names=multispectral_bands,
-        reference_band="B04",  # Use B04 as 10m reference
-        aoi_geometry=config["AOI"],
-        output_resolution="10m"
-    )
+    # Check if this is Maxar data
+    if "MAXAR_DATA_ROOT" in config:
+        logger.info("Detected Maxar dataset configuration")
+        processed_bands = load_maxar_data(config, multispectral_bands)
+    else:
+        logger.info("Using Sentinel-2 preprocessor")
+        # Initialize preprocessor
+        safe_dir = Path(config["S2_DATA_ROOT"])
+        preprocessor = Sentinel2Preprocessor(safe_dir, "icebreaker/config/settings.yaml")
+        
+        # Discover bands
+        bands = preprocessor.discover_bands(multispectral_bands)
+        logger.info(f"Discovered bands: {list(bands.keys())}")
+        
+        # Process bands to common resolution and clip to AOI
+        processed_bands = preprocessor.process_bands(
+            band_names=multispectral_bands,
+            reference_band="B04",  # Use B04 as 10m reference
+            aoi_geometry=config["AOI"],
+            output_resolution="10m"
+        )
     
     # Validate and fix any shape inconsistencies
     processed_bands = ensure_consistent_shapes(processed_bands)
     
     logger.info(f"Processed {len(processed_bands)} bands")
     logger.info(f"Band shapes: {[(k, v.shape) for k, v in processed_bands.items()]}")
+    
+    return processed_bands
+
+
+def load_maxar_data(config: Dict, multispectral_bands: List[str]) -> Dict[str, np.ndarray]:
+    """
+    Load Maxar multispectral data.
+    
+    Args:
+        config: Configuration dictionary with Maxar settings
+        multispectral_bands: List of band names to load
+        
+    Returns:
+        Dictionary of processed band arrays
+    """
+    import glob
+    import os
+    from pathlib import Path
+    
+    logger.info("Loading Maxar multispectral data...")
+    
+    data_root = config["MAXAR_DATA_ROOT"]
+    band_patterns = config.get("BAND_PATTERNS", {})
+    
+    processed_bands = {}
+    
+    for band in multispectral_bands:
+        # Get the file pattern for this band
+        pattern = band_patterns.get(band, f"*{band}*")
+        
+        # Search for files matching the pattern
+        search_path = os.path.join(data_root, pattern)
+        matching_files = glob.glob(search_path)
+        
+        if not matching_files:
+            logger.warning(f"No files found for band {band} with pattern {search_path}")
+            continue
+            
+        # Use the first matching file
+        band_file = matching_files[0]
+        logger.info(f"Loading band {band} from {band_file}")
+        
+        try:
+            # Load the band data using rasterio
+            import rasterio
+            
+            with rasterio.open(band_file) as src:
+                # Read the data
+                band_data = src.read(1)  # Read first band
+                
+                # Apply AOI clipping if specified
+                if "AOI" in config:
+                    # Note: This is a simplified approach. For production use,
+                    # you'd want to implement proper geospatial clipping
+                    logger.info(f"Band {band} loaded with shape {band_data.shape}")
+                
+                processed_bands[band] = band_data
+                
+        except Exception as e:
+            logger.error(f"Error loading band {band} from {band_file}: {e}")
+            continue
     
     return processed_bands
 
@@ -203,28 +283,44 @@ def load_config(config_path: str = "icebreaker/config/settings.yaml") -> Dict:
     return config
 
 
-def prepare_detection_data(config_path: str = "icebreaker/config/settings.yaml") -> Tuple[np.ndarray, np.ndarray, Dict[str, np.ndarray]]:
+def prepare_detection_data(config_path: str = "icebreaker/config/settings.yaml", 
+                          dataset_type: str = "sentinel2") -> Tuple[np.ndarray, np.ndarray, Dict[str, np.ndarray]]:
     """
     Prepare data for ship detection pipeline.
     
     Args:
         config_path: Path to configuration file
+        dataset_type: Type of dataset ("sentinel2" or "maxar")
         
     Returns:
         Tuple of (multispectral_stack, water_mask, processed_bands)
     """
-    logger.info("📊 Preparing detection data...")
+    logger.info(f"📊 Preparing detection data for {dataset_type.upper()} dataset...")
+    
+    # Select appropriate config file based on dataset type
+    if dataset_type.lower() == "maxar":
+        config_file = "icebreaker/config/maxar_settings.yaml"
+    else:
+        config_file = config_path
     
     # Load configuration
-    config = load_config(config_path)
+    config = load_config(config_file)
+    
+    # Select appropriate band configuration
+    if dataset_type.lower() == "maxar":
+        multispectral_bands = MAXAR_MULTISPECTRAL_BANDS
+        logger.info(f"Using Maxar bands: {multispectral_bands}")
+    else:
+        multispectral_bands = SENTINEL2_MULTISPECTRAL_BANDS
+        logger.info(f"Using Sentinel-2 bands: {multispectral_bands}")
     
     # Step 1: Load and preprocess data
-    processed_bands = load_and_preprocess_data(config, SENTINEL2_MULTISPECTRAL_BANDS)
+    processed_bands = load_and_preprocess_data(config, multispectral_bands)
     
     # Step 2: Create multispectral stack
     multispectral_stack = create_multispectral_stack_from_bands(
         processed_bands, 
-        SENTINEL2_MULTISPECTRAL_BANDS
+        multispectral_bands
     )
     
     # Step 3: Create water mask
