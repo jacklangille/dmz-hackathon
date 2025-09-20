@@ -59,11 +59,6 @@ export default function DashboardLayout({
           <Activity className="w-6 h-6" />
         </div>
 
-        {/* Mission Planning / Export Icon */}
-        <div className="w-12 h-12 flex items-center justify-center hover:bg-black hover:text-white transition-colors duration-200 cursor-pointer">
-          <MapPin className="w-6 h-6" />
-        </div>
-
         {/* Admin & Settings Icon */}
         <div className="w-12 h-12 flex items-center justify-center hover:bg-black hover:text-white transition-colors duration-200 cursor-pointer">
           <Settings className="w-6 h-6" />
