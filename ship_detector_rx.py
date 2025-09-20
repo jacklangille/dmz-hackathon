@@ -21,6 +21,32 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+def create_multispectral_stack_from_bands(processed_bands: Dict[str, np.ndarray], 
+                                        band_order: List[str]) -> np.ndarray:
+    """
+    Create multispectral stack from processed bands.
+    
+    Args:
+        processed_bands: Dictionary mapping band names to arrays
+        band_order: List specifying band order
+        
+    Returns:
+        3D array (height, width, n_bands)
+    """
+    logger.info("Creating multispectral stack...")
+    
+    # Create stack in wavelength order
+    multispectral_stack = create_multispectral_stack(
+        processed_bands, 
+        band_order=band_order
+    )
+    
+    logger.info(f"Multispectral stack shape: {multispectral_stack.shape}")
+    logger.info(f"Data range: {multispectral_stack.min():.2f} - {multispectral_stack.max():.2f}")
+    
+    return multispectral_stack
+
+
 class ShipDetectorRX:
     """
     Ship detector using RX anomaly detection on multispectral data.
@@ -159,25 +185,6 @@ class ShipDetectorRX:
         
         return consistent_bands
     
-    def create_multispectral_stack(self) -> np.ndarray:
-        """
-        Create multispectral stack from processed bands.
-        
-        Returns:
-            3D array (height, width, 8_bands)
-        """
-        logger.info("Creating multispectral stack...")
-        
-        # Create stack in wavelength order
-        multispectral_stack = create_multispectral_stack(
-            self.processed_bands, 
-            band_order=self.multispectral_bands
-        )
-        
-        logger.info(f"Multispectral stack shape: {multispectral_stack.shape}")
-        logger.info(f"Data range: {multispectral_stack.min():.2f} - {multispectral_stack.max():.2f}")
-        
-        return multispectral_stack
     
     def create_water_mask(self, scl_band: np.ndarray) -> np.ndarray:
         """
@@ -433,7 +440,10 @@ class ShipDetectorRX:
             self.load_and_preprocess_data()
             
             # Step 2: Create multispectral stack
-            multispectral_stack = self.create_multispectral_stack()
+            multispectral_stack = create_multispectral_stack_from_bands(
+                self.processed_bands, 
+                self.multispectral_bands
+            )
             
             # Step 3: Create water mask
             if "SCL" in self.processed_bands:
