@@ -213,15 +213,10 @@ class ShipDetectorRX:
     to identify ships as spectral anomalies in 8-band multispectral imagery.
     """
     
-    def __init__(self, config_path: str = "icebreaker/config/settings.yaml"):
+    def __init__(self):
         """
         Initialize ship detector.
-        
-        Args:
-            config_path: Path to configuration file
         """
-        self.config_path = config_path
-        self.config = self._load_config()
         self.preprocessor = None
         self.multispectral_stack = None
         self.water_mask = None
@@ -458,14 +453,14 @@ class ShipDetectorRX:
             print(f"  Width: {ship['minor_axis_length']:.1f} pixels")
     
     def run_complete_pipeline(self, 
-                             config_path: str = None,
+                             config_path: str,
                              detection_mode: str = "fast",
                              threshold_percentile: float = 99.5) -> None:
         """
         Run the complete RX ship detection pipeline.
         
         Args:
-            config_path: Path to configuration file (uses class default if None)
+            config_path: Path to configuration file
             detection_mode: RX detection mode ("fast", "adaptive", "pixel_wise")
             threshold_percentile: Detection threshold percentile
         """
@@ -474,7 +469,7 @@ class ShipDetectorRX:
         
         try:
             # Load configuration
-            config = load_config(config_path or self.config_path)
+            config = load_config(config_path)
             
             # Step 1: Load and preprocess data
             processed_bands = load_and_preprocess_data(config, SENTINEL2_MULTISPECTRAL_BANDS)
@@ -521,7 +516,11 @@ class ShipDetectorRX:
 def main():
     """Main function to run RX ship detection."""
     detector = ShipDetectorRX()
-    detector.run_complete_pipeline(detection_mode="fast", threshold_percentile=99.5)
+    detector.run_complete_pipeline(
+        config_path="icebreaker/config/settings.yaml",
+        detection_mode="fast", 
+        threshold_percentile=99.5
+    )
 
 
 if __name__ == "__main__":
