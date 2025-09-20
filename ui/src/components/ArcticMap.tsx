@@ -123,6 +123,14 @@ export default function ArcticMap() {
             name: "Disko Bay, Greenland",
             coords: [69.2, -51.1] as [number, number],
           },
+          {
+            name: "Resolute Bay, Nunavut",
+            coords: [74.7, -94.8] as [number, number],
+          },
+          {
+            name: "Cambridge Bay, Nunavut",
+            coords: [69.1, -105.1] as [number, number],
+          },
         ];
 
         // Create custom pulsing icon
