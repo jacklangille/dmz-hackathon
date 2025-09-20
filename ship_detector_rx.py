@@ -8,15 +8,10 @@ This module implements ship detection using the RX detector on multispectral
 import numpy as np
 import matplotlib.pyplot as plt
 from typing import Tuple
-import logging
 
 from rx_detector import RXDetector, post_process_detections
 from skimage.measure import label, regionprops
 from data_processing import prepare_detection_data
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
 class ShipDetectorRX:
@@ -65,8 +60,6 @@ class ShipDetectorRX:
         Returns:
             Tuple of (rx_scores, binary_detections)
         """
-        logger.info(f"Detecting ships using RX detector (mode: {detection_mode})...")
-        
         # Run RX detection
         if detection_mode == "fast":
             self.rx_scores, self.detections = self.rx_detector.detect_anomalies_fast(
@@ -92,8 +85,6 @@ class ShipDetectorRX:
             cleanup_size=cleanup_size
         )
         
-        logger.info(f"Raw detections: {self.detections.sum()} pixels")
-        
         # Analyze detections
         self._analyze_detections()
         
@@ -101,8 +92,6 @@ class ShipDetectorRX:
     
     def _analyze_detections(self):
         """Analyze detected objects and filter for ships."""
-        logger.info("Analyzing detections...")
-        
         # Label connected components
         labeled_detections = label(self.detections, connectivity=2)
         
@@ -121,15 +110,6 @@ class ShipDetectorRX:
                     "aspect_ratio": float(region.major_axis_length / region.minor_axis_length) if region.minor_axis_length > 0 else 0,
                 }
                 self.ships.append(ship_info)
-        
-        logger.info(f"Ships detected: {len(self.ships)}")
-        
-        # Print ship summary
-        if self.ships:
-            areas = [ship["area_px"] for ship in self.ships]
-            aspect_ratios = [ship["aspect_ratio"] for ship in self.ships]
-            logger.info(f"   Area range: {min(areas)} - {max(areas)} pixels")
-            logger.info(f"   Aspect ratio range: {min(aspect_ratios):.2f} - {max(aspect_ratios):.2f}")
     
     def _is_ship_like(self, region) -> bool:
         """
@@ -163,8 +143,6 @@ class ShipDetectorRX:
             water_mask: 2D boolean mask for valid pixels
             save_path: Path to save the visualization
         """
-        logger.info("Creating visualization...")
-        
         # Extract bands from multispectral stack (order: B01, B02, B03, B04, B05, B06, B07, B08)
         b01 = multispectral_stack[:, :, 0]  # Coastal aerosol
         b02 = multispectral_stack[:, :, 1]  # Blue
@@ -245,7 +223,6 @@ class ShipDetectorRX:
         
         plt.tight_layout()
         plt.savefig(save_path, dpi=150, bbox_inches='tight')
-        logger.info(f"Visualization saved to {save_path}")
     
     def print_ship_summary(self):
         """Print detailed summary of detected ships."""
@@ -280,9 +257,6 @@ class ShipDetectorRX:
             detection_mode: RX detection mode ("fast", "adaptive", "pixel_wise")
             threshold_percentile: Detection threshold percentile
         """
-        logger.info("🚀 Starting RX Ship Detection Pipeline")
-        logger.info("="*50)
-        
         try:
             # Step 1: Detect ships using RX
             self.detect_ships(
@@ -301,10 +275,8 @@ class ShipDetectorRX:
             # Step 3: Print summary
             self.print_ship_summary()
             
-            logger.info("✅ RX ship detection pipeline completed successfully!")
-            
         except Exception as e:
-            logger.error(f"❌ Error in pipeline: {e}")
+            print(f"❌ Error in pipeline: {e}")
             import traceback
             traceback.print_exc()
 
