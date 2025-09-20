@@ -3,29 +3,85 @@
 import { useEffect, useRef } from "react";
 import "leaflet/dist/leaflet.css";
 
+// CSS for pulsing animation
+const pulseStyles = `
+  .pulse-marker-container {
+    background: transparent !important;
+    border: none !important;
+  }
+  
+  .pulse-marker {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background-color: #ef4444;
+    position: relative;
+    animation: pulse 2s infinite;
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  
+  .pulse-marker::before,
+  .pulse-marker::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background-color: rgba(239, 68, 68, 0.6);
+    animation: pulse-ring 2s infinite;
+  }
+  
+  .pulse-marker::after {
+    animation-delay: 1s;
+  }
+  
+  @keyframes pulse {
+    0% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.1);
+      opacity: 0.9;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+  
+  @keyframes pulse-ring {
+    0% {
+      transform: scale(1);
+      opacity: 0.6;
+    }
+    100% {
+      transform: scale(2.5);
+      opacity: 0;
+    }
+  }
+`;
+
 export default function ArcticMap() {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
 
   useEffect(() => {
     if (mapRef.current && !mapInstanceRef.current) {
+      // Inject CSS styles
+      const styleElement = document.createElement("style");
+      styleElement.setAttribute("data-pulse-marker", "true");
+      styleElement.textContent = pulseStyles;
+      document.head.appendChild(styleElement);
+
       // Dynamic import of Leaflet to avoid SSR issues
       import("leaflet").then((L) => {
         // Double-check that we haven't already initialized
         if (mapInstanceRef.current) {
           return;
         }
-
-        // Fix for default markers in Next.js
-        delete (L.Icon.Default.prototype as any)._getIconUrl;
-        L.Icon.Default.mergeOptions({
-          iconRetinaUrl:
-            "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
-          iconUrl:
-            "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
-          shadowUrl:
-            "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
-        });
 
         // Clear any existing map container content
         const container = mapRef.current!;
@@ -61,8 +117,17 @@ export default function ArcticMap() {
           },
         ];
 
+        // Create custom pulsing icon
+        const pulseIcon = L.divIcon({
+          className: "pulse-marker-container",
+          html: '<div class="pulse-marker"></div>',
+          iconSize: [20, 20],
+          iconAnchor: [10, 10],
+          popupAnchor: [0, -10],
+        });
+
         arcticLocations.forEach((location) => {
-          L.marker(location.coords)
+          L.marker(location.coords, { icon: pulseIcon })
             .addTo(map)
             .bindPopup(`<b>${location.name}</b><br/>Arctic Region`);
         });
@@ -78,6 +143,11 @@ export default function ArcticMap() {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
+      }
+      // Clean up injected styles
+      const existingStyle = document.querySelector("style[data-pulse-marker]");
+      if (existingStyle) {
+        existingStyle.remove();
       }
     };
   }, []);
