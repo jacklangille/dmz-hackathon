@@ -36,16 +36,10 @@ export default function ArcticMap() {
 
         // Initialize the map centered on the Arctic
         const map = L.map(container, {
-          center: [85, -100], // High latitude for Arctic focus
+          center: [69.2, -80.1], // High latitude for Arctic focus
           zoom: 3,
-          minZoom: 2,
-          maxZoom: 10,
-          // Restrict the map bounds to Arctic region
-          maxBounds: [
-            [60, -180], // Southwest corner (southern limit)
-            [90, 180], // Northeast corner (North Pole)
-          ],
-          maxBoundsViscosity: 1.0, // Prevents dragging outside bounds
+          minZoom: 1,
+          maxZoom: 18,
         });
 
         // Add CartoDB Positron tiles (English labels, clean style)
@@ -55,29 +49,15 @@ export default function ArcticMap() {
             attribution:
               '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
             subdomains: "abcd",
-            maxZoom: 10,
+            maxZoom: 18,
           }
         ).addTo(map);
 
         // Add some Arctic-specific markers for context
         const arcticLocations = [
-          { name: "North Pole", coords: [90, 0] as [number, number] },
           {
-            name: "Svalbard, Norway",
-            coords: [78.2, 15.6] as [number, number],
-          },
-          { name: "Alert, Canada", coords: [82.5, -62.3] as [number, number] },
-          {
-            name: "Barrow, Alaska",
-            coords: [71.3, -156.8] as [number, number],
-          },
-          {
-            name: "Murmansk, Russia",
-            coords: [68.97, 33.08] as [number, number],
-          },
-          {
-            name: "Reykjavik, Iceland",
-            coords: [64.1, -21.9] as [number, number],
+            name: "Disko Bay, Greenland",
+            coords: [69.2, -51.1] as [number, number],
           },
         ];
 
@@ -86,15 +66,6 @@ export default function ArcticMap() {
             .addTo(map)
             .bindPopup(`<b>${location.name}</b><br/>Arctic Region`);
         });
-
-        // Add a circle to highlight the Arctic Circle
-        L.circle([90, 0], {
-          color: "#3b82f6",
-          fillColor: "#3b82f6",
-          fillOpacity: 0.1,
-          radius: 2000000, // 2000km radius
-          weight: 2,
-        }).addTo(map);
 
         // Add custom control for Arctic info
 
