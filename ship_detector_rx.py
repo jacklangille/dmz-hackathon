@@ -131,6 +131,59 @@ class ShipDetectorRX:
                 region.major_axis_length / region.minor_axis_length >= min_aspect_ratio and
                 region.solidity >= min_solidity)
     
+    def create_ship_mask(self) -> np.ndarray:
+        """
+        Create a binary mask for detected ships.
+        
+        Returns:
+            Binary mask where 1 indicates a detected ship pixel and 0 otherwise
+        """
+        if self.detections is None:
+            raise ValueError("No detections available. Run detect_ships() first.")
+        
+        # Start with the raw detections
+        ship_mask = self.detections.copy().astype(np.uint8)
+        
+        # If we have analyzed ships, create a mask only for ship-like objects
+        if self.ships:
+            # Create a new mask initialized to zeros
+            ship_mask = np.zeros_like(self.detections, dtype=np.uint8)
+            
+            # Label connected components in the raw detections
+            labeled_detections = label(self.detections, connectivity=2)
+            
+            # Get properties for all regions
+            regions = regionprops(labeled_detections)
+            
+            # Fill the mask only for ship-like regions
+            for i, region in enumerate(regions):
+                if self._is_ship_like(region):
+                    # Get the coordinates of this region
+                    coords = region.coords
+                    ship_mask[coords[:, 0], coords[:, 1]] = 1
+        
+        return ship_mask
+    
+    def save_ship_mask(self, filepath: str = "ship_mask.png") -> None:
+        """
+        Save the ship mask to a file.
+        
+        Args:
+            filepath: Path where to save the ship mask image
+        """
+        import matplotlib.pyplot as plt
+        
+        ship_mask = self.create_ship_mask()
+        
+        plt.figure(figsize=(10, 10))
+        plt.imshow(ship_mask, cmap='Reds')
+        plt.title(f"Ship Detection Mask ({ship_mask.sum()} pixels)")
+        plt.colorbar(label='Ship Detection (1=ship, 0=background)')
+        plt.axis('off')
+        plt.tight_layout()
+        plt.savefig(filepath, dpi=150, bbox_inches='tight')
+        plt.close()
+    
     def visualize_results(self, 
                          multispectral_stack: np.ndarray,
                          water_mask: np.ndarray,
@@ -203,14 +256,15 @@ class ShipDetectorRX:
         axes[2, 0].set_title("RX Scores")
         axes[2, 0].axis('off')
         
-        # Raw detections
-        axes[2, 1].imshow(self.detections, cmap='Reds')
-        axes[2, 1].set_title(f"Raw Detections ({self.detections.sum()} pixels)")
+        # Ship mask
+        ship_mask = self.create_ship_mask()
+        axes[2, 1].imshow(ship_mask, cmap='Reds')
+        axes[2, 1].set_title(f"Ship Mask ({ship_mask.sum()} pixels)")
         axes[2, 1].axis('off')
         
         # Ships overlay
         rgb_overlay = rgb_composite.copy()
-        rgb_overlay[self.detections] = [1, 0, 0]  # Red for detections
+        rgb_overlay[ship_mask.astype(bool)] = [1, 0, 0]  # Red for ships
         
         axes[2, 2].imshow(rgb_overlay)
         axes[2, 2].set_title(f"Ships Detected ({len(self.ships)})")
@@ -271,7 +325,10 @@ class ShipDetectorRX:
             water_mask=water_mask
         )
         
-        # Step 3: Print summary
+        # Step 3: Save ship mask
+        self.save_ship_mask("ship_mask.png")
+        
+        # Step 4: Print summary
         self.print_ship_summary()
 
 
