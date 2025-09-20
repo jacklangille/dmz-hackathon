@@ -3,7 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Image from "next/image";
 import rawSatelliteImage from "@/assets/raw-satellite.png";
 import waterMaskImage from "@/assets/water-mask.png";
-import vesselDetectionImage from "@/assets/icebergs.png";
+import vesselDetectionImage from "@/assets/vessel-detection.png";
 import {
   Satellite,
   Circle,
