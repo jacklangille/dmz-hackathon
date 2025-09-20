@@ -190,6 +190,21 @@ SENTINEL2_MULTISPECTRAL_BANDS = [
 ]
 
 
+def load_config(config_path: str = "icebreaker/config/settings.yaml") -> Dict:
+    """
+    Load configuration from YAML file.
+    
+    Args:
+        config_path: Path to the configuration file
+        
+    Returns:
+        Configuration dictionary
+    """
+    with open(config_path, "r") as file:
+        config = yaml.safe_load(file)
+    return config
+
+
 class ShipDetectorRX:
     """
     Ship detector using RX anomaly detection on multispectral data.
@@ -224,11 +239,6 @@ class ShipDetectorRX:
         )
         
         
-    def _load_config(self) -> Dict:
-        """Load configuration from YAML file."""
-        with open(self.config_path, "r") as file:
-            config = yaml.safe_load(file)
-        return config
     
     
     
@@ -448,12 +458,14 @@ class ShipDetectorRX:
             print(f"  Width: {ship['minor_axis_length']:.1f} pixels")
     
     def run_complete_pipeline(self, 
+                             config_path: str = None,
                              detection_mode: str = "fast",
                              threshold_percentile: float = 99.5) -> None:
         """
         Run the complete RX ship detection pipeline.
         
         Args:
+            config_path: Path to configuration file (uses class default if None)
             detection_mode: RX detection mode ("fast", "adaptive", "pixel_wise")
             threshold_percentile: Detection threshold percentile
         """
@@ -461,8 +473,11 @@ class ShipDetectorRX:
         logger.info("="*50)
         
         try:
+            # Load configuration
+            config = load_config(config_path or self.config_path)
+            
             # Step 1: Load and preprocess data
-            processed_bands = load_and_preprocess_data(self.config, SENTINEL2_MULTISPECTRAL_BANDS)
+            processed_bands = load_and_preprocess_data(config, SENTINEL2_MULTISPECTRAL_BANDS)
             
             # Step 2: Create multispectral stack
             multispectral_stack = create_multispectral_stack_from_bands(
