@@ -7,21 +7,12 @@ This module implements ship detection using the RX detector on multispectral
 
 import numpy as np
 import matplotlib.pyplot as plt
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Tuple
 import logging
 
 from rx_detector import RXDetector, post_process_detections
 from skimage.measure import label, regionprops
-from data_processing import (
-    SENTINEL2_MULTISPECTRAL_BANDS,
-    create_multispectral_stack_from_bands,
-    create_water_mask_from_scl,
-    create_fallback_water_mask,
-    load_and_preprocess_data,
-    ensure_consistent_shapes,
-    load_config,
-    prepare_detection_data
-)
+from data_processing import prepare_detection_data
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -55,11 +46,6 @@ class ShipDetectorRX:
             regularization=1e-6,
             fast_mode=True
         )
-        
-        
-    
-    
-    
     
     def detect_ships(self, 
                     multispectral_stack: np.ndarray,
