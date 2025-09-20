@@ -135,9 +135,32 @@ export default function ArcticMap() {
         });
 
         arcticLocations.forEach((location) => {
+          const popupContent = `
+            <div style="text-align: center; min-width: 200px;">
+              <b>${location.name}</b><br/>
+              <span style="color: #666; font-size: 12px;">Arctic Region</span><br/><br/>
+              <a href="/dashboard/dskto-bay" 
+                 style="
+                   display: inline-block;
+                   background: #ef4444;
+                   color: white;
+                   padding: 8px 16px;
+                   text-decoration: none;
+                   border-radius: 4px;
+                   font-size: 12px;
+                   font-weight: 500;
+                   transition: background-color 0.2s;
+                 "
+                 onmouseover="this.style.backgroundColor='#dc2626'"
+                 onmouseout="this.style.backgroundColor='#ef4444'">
+                View Details
+              </a>
+            </div>
+          `;
+
           L.marker(location.coords, { icon: pulseIcon })
             .addTo(map)
-            .bindPopup(`<b>${location.name}</b><br/>Arctic Region`);
+            .bindPopup(popupContent);
         });
 
         // Add custom control for Arctic info
