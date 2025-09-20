@@ -149,6 +149,7 @@ class ShipDetector:
         return self.processed_bands
     
     def detect_ships(self, 
+                    intensity_img=None,  # Pre-computed intensity image
                     bg_radius=15,      # Balanced background for ships
                     guard_radius=3,    # Balanced guard to avoid ship edges
                     k=2.5,             # Moderate threshold
@@ -160,6 +161,7 @@ class ShipDetector:
         Detect ships using CFAR algorithm.
         
         Args:
+            intensity_img: Pre-computed intensity image. If None, will be created from processed_bands.
             bg_radius: Background window radius (default: 15 for fast mode)
             guard_radius: Guard window radius (default: 3 for fast mode)
             k: Threshold multiplier (default: 2.5)
@@ -183,9 +185,12 @@ class ShipDetector:
         water_mask = self.create_water_mask(self.processed_bands["SCL"])
         print(f"🌊 Water pixels: {water_mask.sum()} / {water_mask.size} ({water_mask.mean()*100:.1f}%)")
         
-        # Create intensity image
-        intensity_img = self.create_ship_intensity_image(self.processed_bands)
-        print(f"📈 Intensity range: {intensity_img.min():.2f} - {intensity_img.max():.2f}")
+        # Create intensity image if not provided
+        if intensity_img is None:
+            intensity_img = self.create_ship_intensity_image(self.processed_bands)
+            print(f"📈 Intensity range: {intensity_img.min():.2f} - {intensity_img.max():.2f}")
+        else:
+            print(f"📈 Using provided intensity image, range: {intensity_img.min():.2f} - {intensity_img.max():.2f}")
         
         # Validate that intensity image and water mask have the same shape
         if intensity_img.shape != water_mask.shape:
@@ -332,11 +337,12 @@ class ShipDetector:
                 region.major_axis_length / region.minor_axis_length >= min_aspect_ratio and
                 region.solidity >= min_solidity)
     
-    def visualize_results(self, save_path="ship_detection_results.png"):
+    def visualize_results(self, intensity_img=None, save_path="ship_detection_results.png"):
         """
         Create comprehensive visualization of ship detection results.
         
         Args:
+            intensity_img: Pre-computed intensity image. If None, will be created from processed_bands.
             save_path: Path to save the visualization
         """
         print("📊 Creating visualization...")
@@ -354,8 +360,11 @@ class ShipDetector:
         # Create water mask for visualization
         water_mask = self.create_water_mask(self.processed_bands["SCL"])
         
-        # Create ship intensity image for visualization
-        ship_intensity = self.create_ship_intensity_image(self.processed_bands)
+        # Use provided intensity image or create one for visualization
+        if intensity_img is None:
+            ship_intensity = self.create_ship_intensity_image(self.processed_bands)
+        else:
+            ship_intensity = intensity_img
         
         # Create visualization
         fig, axes = plt.subplots(3, 3, figsize=(18, 18))
@@ -454,13 +463,17 @@ class ShipDetector:
             # Step 1: Load and preprocess data
             self.load_and_preprocess_data()
             
-            # Step 2: Detect ships (using fast mode for development and testing)
-            self.detect_ships(fast_mode=fast_mode)
+            # Step 2: Create intensity image once (DRY principle)
+            intensity_img = self.create_ship_intensity_image(self.processed_bands)
+            print(f"📈 Intensity image created, range: {intensity_img.min():.2f} - {intensity_img.max():.2f}")
             
-            # Step 3: Visualize results
-            self.visualize_results()
+            # Step 3: Detect ships using the pre-computed intensity image
+            self.detect_ships(intensity_img=intensity_img, fast_mode=fast_mode)
             
-            # Step 4: Print summary
+            # Step 4: Visualize results using the same intensity image
+            self.visualize_results(intensity_img=intensity_img)
+            
+            # Step 5: Print summary
             self.print_ship_summary()
             
             print("✅ Ship detection pipeline completed successfully!")
