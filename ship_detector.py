@@ -354,8 +354,11 @@ class ShipDetector:
         # Create water mask for visualization
         water_mask = self.create_water_mask(self.processed_bands["SCL"])
         
+        # Create ship intensity image for visualization
+        ship_intensity = self.create_ship_intensity_image(self.processed_bands)
+        
         # Create visualization
-        fig, axes = plt.subplots(2, 3, figsize=(18, 12))
+        fig, axes = plt.subplots(3, 3, figsize=(18, 18))
         
         # Row 1: Input data
         axes[0, 0].imshow(rgb_composite)
@@ -363,38 +366,59 @@ class ShipDetector:
         axes[0, 0].axis('off')
         
         axes[0, 1].imshow(nir, cmap='gray')
-        axes[0, 1].set_title("NIR Band (Intensity)")
+        axes[0, 1].set_title("NIR Band")
         axes[0, 1].axis('off')
         
         axes[0, 2].imshow(water_mask, cmap='Blues', alpha=0.7)
         axes[0, 2].set_title("Water Mask")
         axes[0, 2].axis('off')
         
-        # Row 2: Results
-        axes[1, 0].imshow(self.scores, cmap='RdBu_r', vmin=-5, vmax=5)
-        axes[1, 0].set_title("CFAR Scores")
+        # Row 2: Processing
+        axes[1, 0].imshow(ship_intensity, cmap='viridis')
+        axes[1, 0].set_title("Ship Intensity Image")
         axes[1, 0].axis('off')
         
-        axes[1, 1].imshow(self.detections, cmap='Reds')
-        axes[1, 1].set_title(f"Raw Detections ({self.detections.sum()} pixels)")
+        axes[1, 1].imshow(self.scores, cmap='RdBu_r', vmin=-5, vmax=5)
+        axes[1, 1].set_title("CFAR Scores")
         axes[1, 1].axis('off')
         
+        axes[1, 2].imshow(self.detections, cmap='Reds')
+        axes[1, 2].set_title(f"Raw Detections ({self.detections.sum()} pixels)")
+        axes[1, 2].axis('off')
+        
+        # Row 3: Final results
         # Overlay detections on RGB
         rgb_overlay = rgb_composite.copy()
         rgb_overlay[self.detections] = [1, 0, 0]  # Red for detections
 
         print(f"RGB overlay shape: {rgb_overlay.shape}")
         
-        # Mark ship centroids
+        axes[2, 0].imshow(rgb_overlay)
+        axes[2, 0].set_title(f"Ships Detected ({len(self.ships)})")
+        axes[2, 0].axis('off')
+        
+        # Mark ship centroids on the overlay
         for ship in self.ships:
             row, col = ship["centroid_rc"]
-            axes[1, 2].plot(col, row, 'yo', markersize=8, markeredgecolor='red', markeredgewidth=2)
+            axes[2, 0].plot(col, row, 'yo', markersize=8, markeredgecolor='red', markeredgewidth=2)
 
         print("Marked ship centroids")
         
-        axes[1, 2].imshow(rgb_overlay)
-        axes[1, 2].set_title(f"Ships Detected ({len(self.ships)})")
-        axes[1, 2].axis('off')
+        # Show intensity with detections overlay
+        intensity_overlay = ship_intensity.copy()
+        intensity_overlay[self.detections] = intensity_overlay.max()  # Highlight detections
+        
+        axes[2, 1].imshow(intensity_overlay, cmap='viridis')
+        axes[2, 1].set_title("Intensity + Detections")
+        axes[2, 1].axis('off')
+        
+        # Show water mask with detections
+        water_overlay = water_mask.astype(float)
+        water_overlay[self.detections] = 2  # Different value for detections
+        
+        axes[2, 2].imshow(water_overlay, cmap='Blues')
+        axes[2, 2].set_title("Water + Detections")
+        axes[2, 2].axis('off')
         
         plt.tight_layout()
         plt.savefig(save_path, dpi=150, bbox_inches='tight')
@@ -450,7 +474,7 @@ class ShipDetector:
 def main():
     """Main function to run ship detection."""
     detector = ShipDetector()
-    detector.run_complete_pipeline(fast_mode=False)
+    detector.run_complete_pipeline(fast_mode=True)
 
 
 if __name__ == "__main__":
